@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SVG BOTANICAL SEQUENCER v1.0</title>
+<title>SVG BOTANICAL SEQUENCER v2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
@@ -262,11 +262,22 @@
       </div>
 
       <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ TAPROOT DRONE ►</span>
+          <label class="row"><span>BED LVL</span><input id="bed" type="range" min="0" max="100" value="35"><span class="val" id="bedV">35</span></label>
+          <label class="row"><span>BED TILT</span><input id="tilt" type="range" min="0" max="100" value="50"><span class="val" id="tiltV">50</span></label>
+          <label class="row"><span>SYMPATHY</span><input id="sympathy" type="range" min="0" max="100" value="20"><span class="val" id="sympathyV">20</span></label>
+          <div class="tiny" style="margin-top:3px">always-on harmonic-series bed whose partials wander · sympathetic string resonators tuned to the root</div>
+        </div>
+      </div>
+
+      <div class="panel bevel-out">
         <div class="group"><span class="legend">◄ EVOLUTION ►</span>
           <label class="row"><span>DETUNE ¢</span><input id="detune" type="range" min="0" max="40" value="10"><span class="val" id="detuneV">10</span></label>
           <label class="row"><span>DRIFT</span><input id="drift" type="range" min="0" max="100" value="40"><span class="val" id="driftV">40</span></label>
           <label class="row"><span>DENSITY</span><input id="density" type="range" min="12" max="88" step="4" value="44"><span class="val" id="densityV">44</span></label>
-          <div class="tiny" style="margin-top:3px">twin-osc chorus · slow filter &amp; detune sweep · canopy breath · voice budget</div>
+          <label class="row"><span>SWELL</span><input id="swell" type="range" min="0" max="100" value="30"><span class="val" id="swellV">30</span></label>
+          <label class="row"><span>GLIDE s</span><input id="glide" type="range" min="1" max="80" value="4"><span class="val" id="glideV">0.4</span></label>
+          <div class="tiny" style="margin-top:3px">twin-osc chorus · slow filter, detune &amp; FM drift · voices swell independently · every change glides</div>
           <button class="b" id="tempoSync" style="width:100%;margin-top:6px" title="lock voice pulse to cycle time for polyrhythms">🕒 TEMPO SYNC: OFF</button>
           <button class="b" id="freeze" style="width:100%;margin-top:4px" title="freeze current canopy into a sustained pad">❆ FREEZE CANOPY</button>
           <button class="b" id="perpetual" style="width:100%;margin-top:6px" title="hands-off generative regrowth">♾ PERPETUAL: OFF</button>
@@ -278,7 +289,15 @@
         <div class="group"><span class="legend">◄ DEEP TIME EVO ►</span>
           <label class="row"><span>EVO RATE</span><input id="evorate" type="range" min="1" max="12" value="3"><span class="val" id="evorateV">3</span></label>
           <button class="b" id="seasons" style="width:100%;margin-top:4px" title="slow drift of width/space/reverb/level">❄ SEASONS: OFF</button>
+          <label class="row"><span>MORPH ±°</span><input id="morphdepth" type="range" min="0" max="24" step="0.5" value="6"><span class="val" id="morphdepthV">6</span></label>
+          <button class="b" id="metamorph" style="width:100%;margin-top:2px" title="the branch angle wanders on its own; every branch re-voices and glides">🍃 METAMORPHOSIS: OFF</button>
           <button class="b" id="harmony" style="width:100%;margin-top:4px" title="slow root progression through JI keys">♪ HARMONY DRIFT: OFF</button>
+          <select id="prog" style="margin-top:4px" title="progression the root walks through">
+            <option value="pastoral">PASTORAL · I IV V</option>
+            <option value="septimal">SEPTIMAL · 7-limit</option>
+            <option value="otonal">OTONAL · overtone climb</option>
+            <option value="utonal">UTONAL · undertone fall</option>
+          </select>
           <div class="tiny" id="harmstat" style="margin-top:4px">root: home key (I)</div>
         </div>
       </div>
@@ -325,16 +344,31 @@
     <span class="stat">NODES <b id="sNodes">0</b></span>
     <span class="stat">VOICES <b id="sVoices">0</b></span>
     <span class="stat">DECAY <b id="sDecay">0</b></span>
+    <span class="stat" title="voices sounding, including ones still fading out">LIVE <b id="sLive">0</b></span>
+    <span class="stat" title="audio glitch events reported by the browser (— if it doesn't report them)">XRUN <b id="sXrun">—</b></span>
     <span class="stat grow" id="sClock">GROWTH CLOCK: idle</span>
     <span class="stat"><span class="led" id="ledmidi"></span>MIDI</span>
   </div>
 </div>
 
+
 <script>
 "use strict";
 /* ============================================================
-   SVG BOTANICAL SEQUENCER  —  L-system growth → JI drone engine
+   SVG BOTANICAL SEQUENCER v2  —  L-system growth → JI drone engine
    Single-file instrument. No external deps besides the fonts.
+
+   Drop-out-free contract (audio engine, section 3):
+   · after construction no live AudioParam is written with .value — every change is a
+     setTargetAtTime glide, so parameter moves are smoothed on the audio thread
+   · a voice is never cut: release = envelope glide to silence; its sources stop only
+     once it is >75 dB down and are disconnected on 'ended'
+   · re-shaping the tree (θ, rules, wind, species, presets, mutation, re-seeding) MORPHS
+     the sounding canopy: surviving branches glide to their new pitch/pan, vanished ones
+     fade out while new ones fade in — nothing is torn down and rebuilt
+   · graph churn is metered through per-frame queues under a hard live-voice ceiling, so
+     no gesture can spike the audio thread; the context runs with a "playback" buffer
+   · an always-on taproot bed + sympathetic resonators keep the drone continuous
    ============================================================ */
 const $=id=>document.getElementById(id);
 const svg=$("svg"), stage=$("stage");
@@ -344,16 +378,23 @@ const SVGNS="http://www.w3.org/2000/svg";
 const S={
   running:false, planted:false, tool:"grow",
   gen:0, targetGen:0, nodes:new Map(),      // pathId -> node
+  kids:new Map(),                           // pathId -> [child pathIds]  (rebuilt every morph)
   pruned:new Set(),                         // pruned pathIds (persist across re-derivation)
-  grafts:[],                                // {from,to,el}
+  grafts:[],                                // {from,to}
   graftPick:null,
   clockAcc:0, lastT:performance.now(),
   fertBurstUntil:0,
   voiceBudget:44, voicesActive:0, decayCount:0,
   completeAt:0, maxDepth:0, agingList:null,
+  bounds:{cx:0,hw:220},
   // deep-time evolution
   seasons:false, harmony:false, evoRate:3,
   progRatio:1, progIdx:0, progAcc:0,
+  metaTheta:null, metaWind:null, morphAcc:0,
+  // engine scheduling
+  startQ:[], swapQ:[], bornSeq:0,
+  morphPending:null, lastMorph:0, allocDirty:false, lastAlloc:0,
+  bedAcc:0, swellAcc:0, seasonAcc:0, frame:0,
 };
 const P={ // params
   theta:27, seglen:34, ldecay:0.78, maxgen:6, species:"fern", wind:0,
@@ -361,16 +402,30 @@ const P={ // params
   master:0.62, canopy:0.70, roots:0.55, noise:0.30, verb:0.45,
   width:1.35, space:0.28, detune:10, drift:0.4, perpetual:false, air:4,
   lo:0, himid:0, drive:0, density:44, tempoSync:false,
+  glide:0.4, swell:0.30, bed:0.35, tilt:0.5, sympathy:0.20,
+  morph:false, morphDepth:6, prog:"pastoral",
 };
 const PERPETUAL_HOLD=45000; // ms a completed canopy holds before perpetual re-seed
-// slow JI progression the root walks through when Harmony Drift is on (ratios vs base root)
-const PROGRESSION=[1, 4/3, 3/2, 9/8, 5/4, 3/2, 4/3, 1];
-const PROG_LABEL=["I · 1:1","IV · 4:3","V · 3:2","II · 9:8","III · 5:4","V · 3:2","IV · 4:3","I · 1:1"];
+// slow JI progressions the root walks through when Harmony Drift is on (ratios vs base root)
+const PROGS={
+  pastoral:{r:[1,4/3,3/2,9/8,5/4,3/2,4/3,1],
+            l:["I · 1:1","IV · 4:3","V · 3:2","II · 9:8","III · 5:4","V · 3:2","IV · 4:3","I · 1:1"]},
+  septimal:{r:[1,7/6,4/3,7/4,3/2,8/7,7/6,1]},
+  otonal:  {r:[1,9/8,5/4,11/8,3/2,13/8,7/4,15/8]},
+  utonal:  {r:[1,8/9,4/5,8/11,2/3,8/13,4/7,8/15]},
+};
+function progRatios(){ return (PROGS[P.prog]||PROGS.pastoral).r; }
+function progLabel(i){ const p=PROGS[P.prog]||PROGS.pastoral;
+  return p.l ? p.l[i] : "step "+(i+1)+" · "+ratioFraction(p.r[i]); }
+const effTheta=()=>S.metaTheta!=null?S.metaTheta:P.theta;
+const effWind =()=>S.metaWind!=null?S.metaWind:P.wind;
+const effRoot =()=>P.rootfreq*(S.progRatio||1);
 
 /* deterministic 0..1 hash from a string (stable jitter across re-derivation) */
 function hash01(str){ let h=2166136261;
   for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
   return ((h>>>0)%100000)/100000; }
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 
 /* ============================================================
    SEED LIBRARY — curated L-systems. Each populates axiom+rules+morphology.
@@ -407,6 +462,15 @@ const PRESETS=[
  {name:"Twin Fern", axiom:"X", X:"F-[[X]+X]+F[+FX]-X", Y:"", F:"FF", f:"",
   theta:25, seglen:26, ldecay:82, maxgen:6, wind:2, species:"fern",
   desc:"Mirror image of the Fractal Plant. Denser high canopy shimmer."},
+ {name:"Glass Cathedral", axiom:"X", X:"F[+X][-X]FX", Y:"", F:"FF", f:"",
+  theta:33.5, seglen:30, ldecay:80, maxgen:6, wind:1, species:"glass",
+  desc:"Vaulted 6:5 arches. Crystalline high-Q partials ringing into the sympathetic strings."},
+ {name:"Bowed Mangrove", axiom:"X", X:"F[-X]F[+X]-FX", Y:"", F:"FF", f:"",
+  theta:45, seglen:28, ldecay:84, maxgen:5, wind:4, species:"bow",
+  desc:"Tangled 5:4 thirds on bowed strings. Try METAMORPHOSIS for a slowly breathing chorale."},
+ {name:"Bell Orchard", axiom:"X", X:"F[+X]F[-X][X]", Y:"", F:"F", f:"",
+  theta:56, seglen:32, ldecay:82, maxgen:6, wind:2, species:"bell",
+  desc:"Open 4:3 fourths struck as FM bells — a gamelan-like shimmer over the taproot bed."},
 ];
 
 /* ============================================================
@@ -444,18 +508,29 @@ function foldFreq(f,depth){
   while(f>=hi)f/=2; while(f<lo)f*=2;
   return Math.min(f,11000);
 }
+/* voice-leading fold: of the octaves of the folded pitch (±1), take the one nearest the
+   voice's current pitch, so retunes glide by the smallest interval instead of leaping
+   an octave whenever the root crosses a fold boundary */
+function leadFreq(raw,prev,depth){
+  const band=foldFreq(raw,depth);
+  if(!(prev>0)) return band;
+  let best=band, bd=Math.abs(Math.log2(band/prev));
+  for(const c of [band/2,band*2]){
+    if(c<24||c>11000) continue;
+    const d=Math.abs(Math.log2(c/prev)); if(d+0.05<bd){ bd=d; best=c; }
+  }
+  return best;
+}
 
 /* ============================================================
    2. TURTLE INTERPRETER → stable node tree (pathId identity)
    ============================================================ */
 function interpret(str){
-  const th=P.theta, base=P.seglen;
+  const th=effTheta(), base=P.seglen, wind=effWind();
   // start bottom-center, heading straight up (-90deg)
-  const st={ x:0, y:0, ang:-90, depth:0, ratio:1, path:"r" };
-  const stack=[]; let cur={...st};
+  const stack=[]; let cur={ x:0, y:0, ang:-90, depth:0, ratio:1, path:"r", parentSeg:null };
   const segs=[]; // {pathId,parent,x0,y0,x1,y1,depth,ratio,turn,ang}
-  let counter={"r":0};
-  cur.path="r";
+  const counter={"r":0};
   function segLen(d){ return base*Math.pow(P.ldecay,d); }
   let pendingTurn=0;
   for(const c of str){
@@ -466,7 +541,7 @@ function interpret(str){
       counter[cur.path]=(counter[cur.path]||0)+1;
       const pid=cur.path+"/"+counter[cur.path];
       // deterministic "wind" jitter, stable across re-derivations
-      const jit = P.wind>0 ? (hash01(pid)*2-1)*P.wind : 0;
+      const jit = wind>0 ? (hash01(pid)*2-1)*wind : 0;
       cur.ang += jit;
       const effTurn = pendingTurn + jit;
       const rad=cur.ang*Math.PI/180;
@@ -491,7 +566,7 @@ function interpret(str){
         cur.depth=cur.depth+1;
         if(counter[cur.path]===undefined)counter[cur.path]=0;
       } else if(c===']'){
-        cur=stack.pop();
+        if(stack.length) cur=stack.pop();     // unbalanced ']' in a hand-typed rule is ignored
       }
     if(segs.length>4200)break; // hard visual cap
   }
@@ -501,11 +576,85 @@ function interpret(str){
 /* ============================================================
    3. AUDIO ENGINE (Web Audio) — Rhizome architecture
    ============================================================ */
-let ac=null, master, limiter, dry, wet, convolver, canopyBus, underBus, subOsc, subGain, noiseNode, noiseGain, noiseLP, recDest;
+let ac=null, master, limiter, dry, wet, convolver, canopyBus, canopyNorm, canopyTone, underBus;
+let subOsc, subGain, noiseNode, noiseGain, noiseLP, recDest;
 let widthGain, spaceSend, ppMergeNode, breathDepth, airShelf, loShelf, midPeak, driveShaper, driveMix, freezeGain;
+let freezeOn=false, bedBus=null, BED=[], symIn=null, SYM=[], LFO=[], workletReady=Promise.resolve(false);
+const LIVE=new Set();          // every voice that is sounding or still fading out
+const TONE_OPEN=18000;         // canopy tone filter fully open
+
+/* the two ways a live parameter changes:
+   glide() — setTargetAtTime: starts from wherever the audio thread actually is, so it is continuous
+             by construction. Used for every AMPLITUDE-like param (gains, envelopes, delay times).
+   ramp()  — finite ramp that cancels and re-anchors. The main thread can only anchor at currentTime,
+             which the audio thread may already have rendered past, so a retarget lands a few ms late:
+             harmless for pitch (oscillator phase stays continuous), a tiny step for a gain. Used
+             only for FREQUENCY-like params, which are also the ones that cost the most to automate
+             (a ramp ends and the param drops back to the cheap path; setTargetAtTime never does). */
+function glide(param,v,tau){
+  if(!ac||!param||!isFinite(v)) return;
+  param.setTargetAtTime(v,ac.currentTime,Math.max(0.004,tau||0.05));
+}
+/* Each ramped param remembers its own segment, so a new ramp starts from the value the old one has
+   reached (computed, not read back). cancelAndHoldAtTime would do this, but Chrome mis-holds when
+   it is retargeted rapidly (pitch dives toward 0 Hz mid-drag). Params driven by ramp() are never
+   touched any other way. */
+function paramNow(p,t){
+  const g=p._seg; if(!g) return p.value;
+  if(t>=g.t1) return g.v1; if(t<=g.t0) return g.v0;
+  const u=(t-g.t0)/(g.t1-g.t0);
+  return g.expo ? g.v0*Math.pow(g.v1/g.v0,u) : g.v0+(g.v1-g.v0)*u;
+}
+function ramp(param,v,dur,expo){
+  if(!ac||!param||!isFinite(v)) return;
+  const t=ac.currentTime, cur=paramNow(param,t); dur=Math.max(0.02,dur||0.1);
+  if(Math.abs(cur-v)<=1e-6*Math.max(1,Math.abs(v)) && (!param._seg||t>=param._seg.t1)) return;   // already there: stay k-rate
+  const ex=!!expo && v>0 && cur>0;
+  param.cancelScheduledValues(t);
+  param.setValueAtTime(cur,t);
+  if(ex) param.exponentialRampToValueAtTime(v,t+dur); else param.linearRampToValueAtTime(v,t+dur);
+  param._seg={t0:t,v0:cur,t1:t+dur,v1:v,expo:ex};
+}
+/* CPU guard: shed voices smoothly whenever the audio thread can't keep up, until it can.
+   Two signals: the browser's own underrun counter (Chrome: playoutStats / playbackStats — audio it
+   had to replace with silence), and, everywhere, the audio clock falling behind the wall clock.
+   With a "playback" buffer currentTime advances in bursts, so lag is sampled every frame and only
+   its per-second MINIMUM (taken just after a burst) is trusted. */
+const GOV={ceil:Infinity, minLag:Infinity, hist:[], lastG:null, good:0, cool:0, events:0, xrun0:null, warm:0};
+function sampleLag(){
+  if(ac && ac.state==="running") GOV.minLag=Math.min(GOV.minLag,performance.now()/1000-ac.currentTime);
+}
+function underrunStats(){   // {ms, n} cumulative, or null where the browser doesn't report them
+  if(!ac) return null;
+  const ps=ac.playoutStats, pb=ac.playbackStats;
+  if(ps && typeof ps.fallbackFramesDuration==="number") return {ms:ps.fallbackFramesDuration, n:ps.fallbackFramesEvents};
+  if(pb && typeof pb.underrunDuration==="number") return {ms:pb.underrunDuration*1000, n:pb.underrunEvents};
+  return null;
+}
+function governor(){
+  const m=GOV.minLag; GOV.minLag=Infinity;
+  const u=underrunStats(), g=u?u.ms:null, dg=(g!=null&&GOV.lastG!=null)?g-GOV.lastG:0; GOV.lastG=g;
+  if(!ac||ac.state!=="running"||document.hidden||!S.planted||!isFinite(m)){ GOV.hist=[]; GOV.warm=0; return; }
+  GOV.hist.push(m); if(GOV.hist.length>4) GOV.hist.shift();
+  const grew=GOV.hist.length===4 ? GOV.hist[3]-GOV.hist[0] : 0;   // seconds of audio lost over ~3 s
+  if(GOV.warm<4){ GOV.warm++; return; }                         // the first seconds after planting are bursty
+  if(GOV.cool>0){ GOV.cool--; return; }                        // let the last cut take effect first
+  if(dg>=12 || grew>0.06){
+    GOV.events++; GOV.good=0; GOV.hist=[]; GOV.cool=2;
+    GOV.ceil=Math.max(12,Math.floor(Math.min(GOV.ceil,S.voicesActive)*0.85));
+    hastenOldest(Math.ceil(LIVE.size*0.25),0.4);             // tails cost CPU too — shorten the oldest
+    allocate(0.4);                                           // still a fade (~1 s), never a cut
+    inspector("⚠ CPU guard: the audio thread was falling behind — voice ceiling eased to "+GOV.ceil+" to keep the drone unbroken.");
+  } else if(dg<1 && grew<0.02 && GOV.ceil<Infinity && ++GOV.good>=8){
+    GOV.good=0; GOV.ceil+=4; if(GOV.ceil>=S.voiceBudget) GOV.ceil=Infinity;
+    S.allocDirty=true;
+  }
+}
 function buildAudio(){
   if(ac)return;
-  ac=new (window.AudioContext||window.webkitAudioContext)();
+  const AC=window.AudioContext||window.webkitAudioContext;
+  // "playback" = larger hardware buffer → far more headroom against underruns (latency is irrelevant for drones)
+  try{ ac=new AC({latencyHint:"playback"}); }catch(e){ ac=new AC(); }
   master=ac.createGain(); master.gain.value=P.master;
   limiter=ac.createDynamicsCompressor();
   limiter.threshold.value=-8; limiter.knee.value=6; limiter.ratio.value=12;
@@ -514,14 +663,18 @@ function buildAudio(){
   convolver=ac.createConvolver(); convolver.buffer=makeImpulse(3.4,2.6);
   dry=ac.createGain(); wet=ac.createGain();
   wet.gain.value=P.verb; dry.gain.value=1;
+  // canopy: fader (+breath, seasons) → voice-count normaliser → tone tilt → dry / reverb / space / freeze / sympathy
   canopyBus=ac.createGain(); canopyBus.gain.value=P.canopy;
+  canopyNorm=ac.createGain(); canopyNorm.gain.value=1;
+  canopyTone=ac.createBiquadFilter(); canopyTone.type="lowpass"; canopyTone.Q.value=-3; canopyTone.frequency.value=TONE_OPEN;
+  canopyBus.connect(canopyNorm); canopyNorm.connect(canopyTone);
   underBus=ac.createGain(); underBus.gain.value=P.roots;
   // ---- FREEZE bus: capture-and-hold canopy state as a sustained pad via a long-tail convolver ----
   const freezeConv=ac.createConvolver(); freezeConv.buffer=makeImpulse(12,0.6); // long slow tail
   freezeGain=ac.createGain(); freezeGain.gain.value=0;      // 0 = off; >0 = pad audible
-  canopyBus.connect(freezeConv); freezeConv.connect(freezeGain); freezeGain.connect(dry);
+  canopyTone.connect(freezeConv); freezeConv.connect(freezeGain); freezeGain.connect(dry);
   // busses → canopy goes through reverb; underground BYPASSES reverb (reverbed sub = mud)
-  canopyBus.connect(dry); canopyBus.connect(convolver);
+  canopyTone.connect(dry); canopyTone.connect(convolver);
   underBus.connect(dry);
   convolver.connect(wet);
   dry.connect(master); wet.connect(master);
@@ -539,7 +692,7 @@ function buildAudio(){
   ppMergeNode=ac.createChannelMerger(2);
   ppTone.connect(ppMergeNode,0,0);    // filtered left echoes → left channel
   ppToneR.connect(ppMergeNode,0,1);   // filtered right echoes → right channel
-  canopyBus.connect(spaceSend);
+  canopyTone.connect(spaceSend);
   ppMergeNode.connect(master);
   // ---- global slow "breath": tidal swell on the whole canopy over ~1 min ----
   const breathLfo=ac.createOscillator(); breathLfo.type="sine"; breathLfo.frequency.value=0.017;
@@ -561,15 +714,31 @@ function buildAudio(){
   // recorder tap (post-limiter, fully processed)
   recDest=ac.createGain(); limiter.connect(recDest);
   // ---- underground: sub + brown noise ----
-  subOsc=ac.createOscillator(); subOsc.type="sine"; subOsc.frequency.value=P.rootfreq/2;
+  subOsc=ac.createOscillator(); subOsc.type="sine"; subOsc.frequency.value=subFreq();
   subGain=ac.createGain(); subGain.gain.value=0;
   subOsc.connect(subGain); subGain.connect(underBus); subOsc.start();
   noiseNode=makeBrownNoise();
   noiseLP=ac.createBiquadFilter(); noiseLP.type="lowpass"; noiseLP.frequency.value=180;
   noiseGain=ac.createGain(); noiseGain.gain.value=0;
   noiseNode.connect(noiseLP); noiseLP.connect(noiseGain); noiseGain.connect(underBus);
-  $("ledaudio").classList.add("on");
+  // ---- species wavetables, shared modulation bank, taproot bed, sympathetic resonators ----
+  buildWaves(); buildLfoBank(); buildBed(); buildSym();
+  ac.onstatechange=updateCtxLed; updateCtxLed();
+  // off-main-thread recorder tap (falls back to ScriptProcessor if worklets are unavailable)
+  if(ac.audioWorklet && window.AudioWorkletNode){
+    // blob: works on http(s); file:// pages (null origin) only accept a data: URL
+    const blob=URL.createObjectURL(new Blob([REC_WORKLET],{type:"application/javascript"}));
+    const data="data:application/javascript;charset=utf-8,"+encodeURIComponent(REC_WORKLET);
+    workletReady=ac.audioWorklet.addModule(blob)
+      .catch(()=>ac.audioWorklet.addModule(data)).then(()=>true,()=>false);
+  }
 }
+function updateCtxLed(){
+  if(!ac) return;
+  $("ledaudio").classList.toggle("on",ac.state==="running");
+  $("ledaudio").title="audio context: "+ac.state;
+}
+function subFreq(){ let f=effRoot()/2; while(f<24)f*=2; return f; }
 function makeImpulse(dur,decay){
   const rate=ac.sampleRate, len=rate*dur, buf=ac.createBuffer(2,len,rate);
   for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch);
@@ -580,7 +749,10 @@ function makeBrownNoise(){
   // 2 independent channels → decorrelated, wide atmospheric noise floor
   const len=ac.sampleRate*2, buf=ac.createBuffer(2,len,ac.sampleRate);
   for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch); let last=0;
-    for(let i=0;i<len;i++){ const w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; } }
+    for(let i=0;i<len;i++){ const w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; }
+    // tilt the walk so its end meets its start: the 2 s loop point no longer steps every lap
+    const step=d[len-1]-d[0];
+    for(let i=0;i<len;i++) d[i]-=step*i/(len-1); }
   const src=ac.createBufferSource(); src.buffer=buf; src.loop=true; src.start(); return src;
 }
 /* mid/side stereo width matrix: width 0=mono, 1=neutral, >1 wider */
@@ -617,176 +789,413 @@ function driveCurve(){
   for(let i=0;i<n;i++){ const x=i/(n-1)*2-1; curve[i]=Math.tanh(k*x); }
   return curve;
 }
+/* ---- species timbres ----
+   Each species is a DARK and a BRIGHT harmonic spectrum baked once into PeriodicWaves. A voice
+   crossfades its two oscillators between them on a slow shared LFO: the swept-filter / breathing-FM
+   life of a modulated voice, but built only from nodes the audio thread renders cheaply (a swept
+   biquad, panner or FM'd oscillator is recomputed every sample and costs 3-5x more).
+   FM species are baked exactly: FM at a 1:1.5 or 1:3.5 ratio repeats at f/2, so it is a Fourier
+   series on an oscillator running at f/2 ("sub":2). */
+const NH=48;
+const lpk=(k,kc)=>1/(1+Math.pow(k/kc,2));
 const SPEC={
-  fern:  {osc:"triangle",fm:true, q:6, tremDepth:0.5},
-  oak:   {osc:"sawtooth",fm:false,q:3, tremDepth:0.35},
-  reed:  {osc:"sine",    fm:false,q:9, tremDepth:0.6},
-  thorn: {osc:"square",  fm:false,q:2, tremDepth:0.7},
-  bell:  {osc:"sine",    fm:true, q:8, tremDepth:0.25},  // FM sine → metallic bell partials
-  bow:   {osc:"sawtooth",fm:false,q:5, tremDepth:0.45},  // narrow saw = bowed string
-  glass: {osc:"triangle",fm:false,q:11,tremDepth:0.3},   // very high-Q tri = glassy resonance
-  breath:{osc:"sine",    fm:false,q:1.5,tremDepth:0.8},  // very wide filter = airy hush
+  fern:  {tremDepth:0.5,  fm:[2,3,0.35,1.2]},                    // carrier h2, modulator h3, dark β, bright β
+  oak:   {tremDepth:0.35, dark:k=>lpk(k,5)/k, bright:k=>lpk(k,16)/k},
+  reed:  {tremDepth:0.6,  dark:k=>[1,0.05,0.02][k-1]||0, bright:k=>[1,0.22,0.1,0.05,0.025][k-1]||0},
+  thorn: {tremDepth:0.7,  dark:k=>k%2?lpk(k,6)/k:0, bright:k=>k%2?lpk(k,22)/k:0},
+  bell:  {tremDepth:0.25, fm:[2,7,0.8,2.4]},                     // metallic 1:3.5 FM
+  bow:   {tremDepth:0.45, dark:k=>lpk(k,9)/k*(1+1.6*Math.exp(-Math.pow((k-4)/2.2,2))),
+                          bright:k=>lpk(k,22)/k*(1+1.8*Math.exp(-Math.pow((k-7)/2.6,2)))},   // bowed-string formant
+  glass: {tremDepth:0.3,  dark:k=>(k%2?1/(k*k):0)+(k===5?0.22:0),
+                          bright:k=>(k%2?1/(k*k):0)+(k===7?0.3:0)+(k===11?0.22:0)+(k===15?0.12:0)},
+  breath:{tremDepth:0.8,  dark:k=>[1,0.1,0.04][k-1]||0, bright:k=>k===1?1:(k<=18?0.09/Math.sqrt(k):0), scatter:true},
 };
+const SPECIES=Object.keys(SPEC);
+let WAVES={};
+function specWave(fn,scatter,seed){
+  const re=new Float32Array(NH+1), im=new Float32Array(NH+1);
+  for(let k=1;k<=NH;k++){ const a=fn(k)||0;
+    if(scatter){ const ph=hash01(seed+k)*Math.PI*2; re[k]=a*Math.sin(ph); im[k]=a*Math.cos(ph); } else im[k]=a; }
+  return ac.createPeriodicWave(re,im);
+}
+function fmWave(ch,mh,beta){ // one period of sin(2π·ch·t + β·sin(2π·mh·t)) → Fourier series
+  const M=2048, x=new Float32Array(M), re=new Float32Array(NH+1), im=new Float32Array(NH+1);
+  for(let i=0;i<M;i++){ const t=i/M; x[i]=Math.sin(2*Math.PI*ch*t+beta*Math.sin(2*Math.PI*mh*t)); }
+  for(let k=1;k<=NH;k++){ let a=0,b=0;
+    for(let i=0;i<M;i++){ const w=2*Math.PI*k*i/M; a+=x[i]*Math.cos(w); b+=x[i]*Math.sin(w); }
+    re[k]=2*a/M; im[k]=2*b/M; }
+  return ac.createPeriodicWave(re,im);
+}
+function buildWaves(){
+  for(const name of SPECIES){ const s=SPEC[name];
+    WAVES[name]= s.fm ? {dark:fmWave(s.fm[0],s.fm[1],s.fm[2]), bright:fmWave(s.fm[0],s.fm[1],s.fm[3]), sub:2}
+                      : {dark:specWave(s.dark,s.scatter,name+"d"), bright:specWave(s.bright,s.scatter,name+"b"), sub:1}; }
+}
 
-/* create an audible voice for a node */
-function startVoice(node){
-  if(!ac) return;
-  if(S.voicesActive>=S.voiceBudget) return; // budget: rest are visual-only
-  const sp=SPEC[node.species]||SPEC.fern;
-  const t=ac.currentTime;
-  const freq=node.freq;
-  const g=ac.createGain(); g.gain.setValueAtTime(0.0001,t);
+/* ---- shared slow-modulation bank: voices tap these instead of owning LFOs ---- */
+const LFO_RATES=[0.0071,0.0113,0.0173,0.0247,0.0349,0.0491,0.0697,0.0983];
+function buildLfoBank(){
+  LFO=LFO_RATES.map(r=>{ const o=ac.createOscillator(); o.type="sine"; o.frequency.value=r; o.start(); return o; });
+}
+function lfoFor(key){ return LFO[Math.floor(hash01(key)*LFO.length)%LFO.length]; }
+
+/* ---- shared tremolo bank: one LFO per JI ratio (quarter-tone grid, at most TREM_MAX of them —
+   a new ratio beyond that shares its nearest neighbour); rate = PULSE × ratio, octave-folded so
+   deep ratio chains keep their polyrhythm without buzzing ---- */
+const TREM_MAX=24;
+const TREM=new Map();   // key → {o, k, n(refs), idle}
+function tremBase(){ return P.tempoSync?1000/P.cycleMs:P.pulse; }
+function foldRate(r){ if(!(r>0)) r=1; while(r>9)r/=2; while(r<0.05)r*=2; return r; }
+function tremKey(n){
+  const k=Math.round(Math.log2(n.ratioMul||1)*24);
+  if(TREM.has(k)||TREM.size<TREM_MAX) return k;
+  let best=k,bd=Infinity; for(const j of TREM.keys()){ const d=Math.abs(j-k); if(d<bd){bd=d;best=j;} }
+  return best;
+}
+function tremRate(k){ return foldRate(tremBase()*Math.pow(2,k/24)); }
+function tremRef(k){
+  let e=TREM.get(k);
+  if(!e){ const o=ac.createOscillator(); o.type="sine"; o.frequency.value=tremRate(k); o.start(); e={o,k,n:0,idle:0}; TREM.set(k,e); }
+  e.n++; e.idle=0; return e.o;
+}
+function tremUnref(k){ const e=TREM.get(k); if(e){ e.n=Math.max(0,e.n-1); if(!e.n) e.idle=performance.now(); } }
+function retremAll(dur){ for(const e of TREM.values()) ramp(e.o.frequency,tremRate(e.k),dur,true); }
+function sweepTremBank(){ const now=performance.now();
+  for(const [k,e] of TREM) if(!e.n && e.idle && now-e.idle>3000){ try{e.o.stop();e.o.disconnect();}catch(x){} TREM.delete(k); } }
+
+/* ---- TAPROOT BED: harmonic-series partials on the root, each wandering in level ---- */
+const BED_H=[1,2,3,4,5,6,7,8,9,10,12,14,16];
+function buildBed(){
+  bedBus=ac.createGain(); bedBus.gain.value=0;
+  const hp=ac.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=220;
+  bedBus.connect(dry); bedBus.connect(hp); hp.connect(convolver);   // low partials stay out of the reverb
+  const f0=effRoot();
+  BED=BED_H.map((h,i)=>{
+    const o=ac.createOscillator(); o.type="sine"; o.frequency.value=f0*h;
+    o.detune.value=(i%2?-1:1)*(0.8+h*0.35);                          // static micro-detune: partials don't phase-lock
+    const g=ac.createGain(); g.gain.value=0;
+    o.connect(g); let out=g;
+    if(ac.createStereoPanner){ const p=ac.createStereoPanner();
+      p.pan.value=i===0?0:(i%2?-1:1)*Math.min(0.8,0.12+i*0.06); g.connect(p); out=p; }
+    out.connect(bedBus); o.start();
+    return {h,o,g,walk:0.3+Math.random()*0.6};
+  });
+  levelBed(0.05);
+}
+function bedPartialLevel(p){
+  if(effRoot()*p.h>9000) return 0;
+  return 0.05*p.walk/Math.pow(p.h,0.45+(1-P.tilt)*1.35);
+}
+function levelBed(tau){ for(const p of BED) glide(p.g.gain,bedPartialLevel(p),tau); }
+function bedTarget(){ return S.planted?P.bed:0; }
+function evolveBed(){ // a couple of partials drift to new levels on every step
+  const r=3/S.evoRate;
+  for(let k=0;k<2;k++){ const p=BED[(Math.random()*BED.length)|0]; if(!p)return;
+    p.walk=Math.pow(Math.random(),1.6);
+    glide(p.g.gain,bedPartialLevel(p),(3+Math.random()*7)*r); }
+}
+
+/* ---- SYMPATHY: damped comb resonators tuned to the root, excited by the canopy ---- */
+const SYM_R=[1,3/2,5/4,7/4];
+function symFreq(r){ let f=effRoot()*r; while(f>240)f/=2; while(f<60)f*=2; return f; }
+function symFb(){ return P.sympathy>0 ? 0.6+P.sympathy*0.32 : 0; }   // ≤0.92, loop filter has no peak → always stable
+function buildSym(){
+  symIn=ac.createGain(); symIn.gain.value=P.sympathy*0.05; canopyTone.connect(symIn);
+  const hp=ac.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=45;
+  const out=ac.createGain(); out.gain.value=0.6;
+  hp.connect(out); out.connect(dry); out.connect(convolver);
+  SYM=SYM_R.map((r,i)=>{
+    const d=ac.createDelay(0.1); d.delayTime.value=1/symFreq(r);
+    const lp=ac.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=1600+i*450; lp.Q.value=-6;
+    const fb=ac.createGain(); fb.gain.value=symFb();
+    symIn.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d);
+    let o=lp;
+    if(ac.createStereoPanner){ const p=ac.createStereoPanner(); p.pan.value=[-0.5,0.5,-0.25,0.25][i]; lp.connect(p); o=p; }
+    o.connect(hp);
+    return {r,d,fb};
+  });
+}
+
+/* ---- voices ---- */
+const SPREAD=0.42;
+function panFor(n){ const nx=(n.x1-S.bounds.cx)/S.bounds.hw; return clamp(nx*(0.6+n.depth*0.05),-0.9,0.9); }
+function timbreDepth(m){ return Math.min(m,1-m)*(0.35+P.drift*0.65); }
+function effBudget(){ return Math.min(S.voiceBudget,GOV.ceil); }
+function liveCap(){ const b=effBudget(); return b+Math.max(12,Math.round(b*0.35)); }
+
+/* create an audible voice for a node (only ever called from the metered start queue)
+     oscA(dark) → wA ─ panA ┐                                    wA/wB: timbre crossfade on a bank LFO
+                            ├→ trem → env → clean → canopy       trem: shared JI-ratio tremolo
+     oscB(bright)→ wB ─ panB ┘                                    env: the only thing that decides silence */
+function startVoice(node,atk){
+  if(!ac||node.voice) return null;
+  const sp=SPEC[node.species]||SPEC.fern, W=WAVES[node.species]||WAVES.fern;
+  const t=ac.currentTime, f=node.freq, pid=node.pathId;
   const amp=0.15/(1+node.depth*0.18);   // gentler rolloff → canopy voices stay present
-  g.gain.exponentialRampToValueAtTime(Math.max(0.002,amp),t+1.2+node.depth*0.15);
-  const bp=ac.createBiquadFilter(); bp.type="bandpass";
-  bp.frequency.value=Math.min(10000,freq*(1+node.depth*0.5)); bp.Q.value=Math.max(1.1,sp.q-node.depth*0.6);
-  const bpBase=bp.frequency.value;
-  const bp2=ac.createBiquadFilter(); bp2.type="bandpass"; bp2.frequency.value=bpBase; bp2.Q.value=bp.Q.value;
-  // ---- twin oscillators panned apart with slight detune = chorused stereo width ----
-  const usePan=!!ac.createStereoPanner;
-  const px=(node.x1/220);
-  const basePan=Math.max(-0.9,Math.min(0.9,px*(0.5+node.depth*0.16)));
-  const spread=0.42;
-  let pan=null,pan2=null,panLfo=null;
-  if(usePan){
-    pan =ac.createStereoPanner(); pan.pan.value =Math.max(-1,Math.min(1,basePan-spread));
-    pan2=ac.createStereoPanner(); pan2.pan.value=Math.max(-1,Math.min(1,basePan+spread));
-    // independent slow auto-pan drift → both move together, image drifts through the field
-    panLfo=ac.createOscillator(); panLfo.type="sine";
-    panLfo.frequency.value=0.02+hash01(node.pathId+"p")*0.13;
-    const panDepth=ac.createGain(); panDepth.gain.value=Math.min(0.5,0.22+node.depth*0.05);
-    panLfo.connect(panDepth); panDepth.connect(pan.pan); panDepth.connect(pan2.pan); panLfo.start();
-  }
-  // main + detuned twin oscillators (symmetric detune around the true pitch)
-  const osc =ac.createOscillator(); osc.type =sp.osc; osc.frequency.value =freq; osc.detune.value =-P.detune/2;
-  const osc2=ac.createOscillator(); osc2.type=sp.osc; osc2.frequency.value=freq; osc2.detune.value=+P.detune/2;
-  let fm=null,fmg=null;
-  if(sp.fm){ fm=ac.createOscillator(); fm.frequency.value=freq*1.5; fmg=ac.createGain();
-    fmg.gain.value=freq*0.6; fm.connect(fmg); fmg.connect(osc.frequency); fmg.connect(osc2.frequency); fm.start(); }
-  // slow detune drift → the twin beats wander, shimmering over time
-  const detLfo=ac.createOscillator(); detLfo.type="sine";
-  detLfo.frequency.value=0.015+hash01(node.pathId+"d")*0.05;
-  const detDepth=ac.createGain(); detDepth.gain.value=1.5+P.drift*7; // ± cents
-  detLfo.connect(detDepth); detDepth.connect(osc2.detune); detLfo.start();
-  // slow bandpass sweep → timbre opens & closes over tens of seconds
-  const filtLfo=ac.createOscillator(); filtLfo.type="sine";
-  filtLfo.frequency.value=0.008+hash01(node.pathId+"f")*0.03;
-  const filtDepth=ac.createGain(); filtDepth.gain.value=bpBase*(0.12+P.drift*0.45);
-  filtLfo.connect(filtDepth); filtDepth.connect(bp.frequency); filtDepth.connect(bp2.frequency); filtLfo.start();
-  // tremolo LFO => polyrhythm: rate tied to node ratio
-  const lfo=ac.createOscillator(); lfo.type="sine";
-  const lfoRate = P.tempoSync ? (1000/P.cycleMs)*(node.ratioMul||1)
-                              : P.pulse*(node.ratioMul||1);
-  lfo.frequency.value=Math.max(0.05,lfoRate);
-  const lfoG=ac.createGain(); lfoG.gain.value=amp*sp.tremDepth;
-  lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start();
-  // signal path (through a dedicated mute-gain used by Solo, untouched by the tremolo LFO)
-  const mute=ac.createGain(); mute.gain.value=(S.soloed && !isInSolo(node))?0:1;
-  osc.connect(bp);   bp.connect(pan||g);   if(pan)pan.connect(g);
-  osc2.connect(bp2); bp2.connect(pan2||g); if(pan2)pan2.connect(g);
-  g.connect(mute); mute.connect(canopyBus);
-  osc.start(); osc2.start();
-  node.voice={osc,osc2,fm,g,bp,bp2,lfo,lfoG,pan,pan2,panLfo,detLfo,filtLfo,detDepth,filtDepth,mute,amp,bpBase,started:t,crushed:false};
-  S.voicesActive++;
+  const v={node, species:node.species, sub:W.sub, amp, td:sp.tremDepth, state:"on", t0:t, endAt:Infinity,
+           srcs:[], all:[], links:[], freed:false};
+  const G=val=>{ const g=ac.createGain(); g.gain.value=val; v.all.push(g); return g; };
+  const O=(wave,det)=>{ const o=ac.createOscillator(); o.setPeriodicWave(wave); o.frequency.value=f/W.sub;
+    o.detune.value=det; v.all.push(o); v.srcs.push(o); return o; };
+  const link=(src,dst)=>{ src.connect(dst); v.links.push([src,dst]); };
+  // twin oscillators, symmetric detune around the true pitch, one dark one bright
+  const oA=O(W.dark,-P.detune/2), oB=O(W.bright,P.detune/2);
+  // timbre: crossfade dark↔bright on a slow shared LFO (deeper limbs sit brighter)
+  const m=clamp(0.25+node.depth*0.09,0.2,0.8), dm=timbreDepth(m);
+  const wA=G(1-m), wB=G(m), dA=G(dm), dB=G(-dm);
+  const L=lfoFor(pid+"t"); link(L,dA); link(L,dB); dA.connect(wA.gain); dB.connect(wB.gain);
+  // stereo: the twins sit either side of the limb; as the timbre leans, so does the image
+  let pA=null,pB=null;
+  if(ac.createStereoPanner){ const bpn=panFor(node);
+    pA=ac.createStereoPanner(); pA.pan.value=clamp(bpn-SPREAD,-1,1); v.all.push(pA);
+    pB=ac.createStereoPanner(); pB.pan.value=clamp(bpn+SPREAD,-1,1); v.all.push(pB); }
+  // tremolo on its own gain stage → the envelope alone decides silence
+  // (half the voices on each shared LFO pulse in anti-phase, so equal ratios don't throb in lockstep)
+  v.tsign=hash01(pid+"w")<0.5?-1:1;
+  const trem=G(1-sp.tremDepth/2), tD=G(v.tsign*sp.tremDepth/2);
+  v.tk=v.tkLive=tremKey(node); tremRef(v.tk).connect(tD); tD.connect(trem.gain);
+  const env=G(0), clean=G((S.soloSet && !S.soloSet.has(pid))?0:1);   // clean doubles as the SOLO mute
+  oA.connect(wA); wA.connect(pA||trem); if(pA)pA.connect(trem);
+  oB.connect(wB); wB.connect(pB||trem); if(pB)pB.connect(trem);
+  trem.connect(env); env.connect(clean); clean.connect(canopyBus);
+  env.gain.setValueAtTime(0,t);
+  env.gain.setTargetAtTime(amp*swellLevel(),t,atk||(1.2+node.depth*0.15)/3);
+  for(const s of v.srcs) s.start(t);
+  oA.onended=()=>freeVoice(v);
+  Object.assign(v,{oA,oB,wA,wB,dA,dB,pA,pB,trem,tD,env,clean,m});
+  LIVE.add(v);
+  node.voice=v; S.voicesActive++;
   midiNoteOn(node);
+  return v;
 }
-function decayVoice(node){ // digital-rot decay → fade to true silence, then free the slot
-  const v=node.voice; if(!v||v.crushed)return; v.crushed=true;
-  const t=ac.currentTime;
-  const shaper=ac.createWaveShaper(); shaper.curve=bitcrushCurve(3);
-  // insert bitcrusher on the summed voice output: g -> shaper -> mute
-  try{ v.g.disconnect(); }catch(e){}
-  v.g.connect(shaper); shaper.connect(v.mute);
-  v.lfoG.gain.setTargetAtTime(0.0001,t,3);   // remove tremolo so it can reach real silence
-  v.bp.frequency.exponentialRampToValueAtTime(Math.max(80,v.bp.frequency.value*0.2),t+8);
-  if(v.bp2)v.bp2.frequency.exponentialRampToValueAtTime(Math.max(80,v.bp2.frequency.value*0.2),t+8);
-  v.g.gain.setTargetAtTime(0.0001,t+4,4);
-  // stop every source after the tail, then release the voice (guarded against double-free)
-  const endT=t+16;
-  [v.osc,v.osc2,v.fm,v.lfo,v.panLfo,v.detLfo,v.filtLfo].forEach(o=>{ if(o){try{o.stop(endT);}catch(e){}} });
-  midiNoteOff(node);
-  setTimeout(()=>{ if(node.voice===v){ node.voice=null; S.voicesActive=Math.max(0,S.voicesActive-1); } },
-             (endT-t)*1000+250);
+function swellLevel(){ return 1-P.swell*0.92*Math.pow(Math.random(),0.8); }
+function stopAt(v,end){ v.endAt=end; for(const s of v.srcs){ try{s.stop(end);}catch(e){} } }
+function detach(v){ const n=v.node;
+  if(n && n.voice===v){ n.voice=null; S.voicesActive=Math.max(0,S.voicesActive-1); midiNoteOff(n); }
+  v.node=null; }
+function freeVoice(v){
+  if(v.freed)return; v.freed=true;
+  for(const [s,d] of v.links){ try{s.disconnect(d);}catch(e){} }          // shared sources let go of this voice
+  const te=TREM.get(v.tkLive); if(te){ try{te.o.disconnect(v.tD);}catch(e){} } tremUnref(v.tkLive);
+  for(const n of v.all){ try{n.disconnect();}catch(e){} }
+  LIVE.delete(v);
 }
-function stopVoice(node,fast){
-  const v=node.voice; if(!v)return; const t=ac.currentTime;
-  v.g.gain.cancelScheduledValues(t);
-  v.g.gain.setValueAtTime(Math.max(0.0002,v.g.gain.value),t);
-  v.g.gain.exponentialRampToValueAtTime(0.0001,t+(fast?0.25:1.4));
-  const stopT=t+(fast?0.4:1.8);
-  try{v.osc.stop(stopT);}catch(e){} try{if(v.osc2)v.osc2.stop(stopT);}catch(e){} try{if(v.fm)v.fm.stop(stopT);}catch(e){}
-  try{v.lfo.stop(stopT);}catch(e){} try{if(v.panLfo)v.panLfo.stop(stopT);}catch(e){}
-  try{if(v.detLfo)v.detLfo.stop(stopT);}catch(e){} try{if(v.filtLfo)v.filtLfo.stop(stopT);}catch(e){}
-  midiNoteOff(node);
-  node.voice=null; S.voicesActive=Math.max(0,S.voicesActive-1);
+/* envelope to silence from t0: 6 time-constants (-52 dB, buried in the drone), then a quick
+   second fade so the sources can stop sooner. The envelope only ever receives setTargetAtTime,
+   which continues from wherever it actually is → no step, ever. Returns the stop time. */
+function fadeOut(v,t0,tau){
+  const g=v.env.gain, t6=t0+tau*6;
+  g.setTargetAtTime(0,t0,tau); g.setTargetAtTime(0,t6,0.04);
+  stopAt(v,t6+0.45); return t6+0.45;    // ≈ -100 dB by the time the oscillators stop
+}
+/* fade a voice to silence; it frees itself once its sources end */
+function releaseVoice(v,tau){
+  if(!v||v.state!=="on") return;
+  v.state="rel"; const t=ac.currentTime;
+  fadeOut(v,t,Math.max(0.02,tau||1));
+  detach(v);
+}
+/* shorten a long tail when the live-voice ceiling is reached — a gentle fade (the tail is often
+   the old canopy crossfading under the new one, so it must not drop away suddenly) */
+function hasten(v,tau){ tau=tau||0.6; const t=ac.currentTime; if(v.endAt-t<tau*6+0.6) return false;
+  fadeOut(v,t,tau); return true; }
+/* digital-rot decay: crossfade into a crushed, wilting copy, then fade to true silence */
+function rotVoice(v){
+  if(!v||v.state!=="on") return;
+  v.state="rel"; v.rot=true; const t=ac.currentTime;
+  const pre=ac.createGain(); pre.gain.value=10;                     // drive the crusher at full scale…
+  const sh=ac.createWaveShaper(); sh.curve=bitcrushCurve(3);
+  const lp=ac.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=2200; lp.Q.value=-3;
+  const post=ac.createGain(); post.gain.value=0;                    // …and bring it back to voice level
+  v.all.push(pre,sh,lp,post);
+  v.env.connect(pre); pre.connect(sh); sh.connect(lp); lp.connect(post); post.connect(canopyBus);
+  post.gain.setTargetAtTime(0.1,t,1.2);
+  v.clean.gain.setTargetAtTime(0,t,1.5);
+  ramp(lp.frequency,260,7,true);                                    // the crushed copy wilts darker
+  glide(v.dA.gain,0,2); glide(v.dB.gain,0,2); glide(v.wB.gain,0,2.5); glide(v.wA.gain,1,2.5);
+  ramp(v.oA.detune,-P.detune/2-30,6); ramp(v.oB.detune,P.detune/2-30,6);   // wilting pitch sag
+  glide(v.tD.gain,0,1.5);
+  fadeOut(v,t+4,1.8);
+  detach(v);
+}
+/* glide a sounding voice to its node's current pitch / pulse. (A voice keeps the stereo seat it
+   was born in: re-panning would mean automating panners, which costs as much as a whole voice.) */
+function tuneVoice(v,n,tau){
+  const dur=Math.max(0.03,tau*2.5);
+  ramp(v.oA.frequency,n.freq/v.sub,dur,true); ramp(v.oB.frequency,n.freq/v.sub,dur,true);
+  retremVoice(v,n);
+}
+/* move a voice to another tremolo LFO: dip the tremolo depth, swap the source, bring it back */
+function retremVoice(v,n){
+  v.tk=tremKey(n);
+  if(v.tk===v.tkLive||v.tswitch) return;
+  v.tswitch=true; glide(v.tD.gain,0,0.04);         // ~10 time-constants down (-87 dB) before the swap
+  setTimeout(()=>{ v.tswitch=false;
+    if(v.freed) return;
+    if(v.tk!==v.tkLive){
+      const old=TREM.get(v.tkLive); if(old){ try{old.o.disconnect(v.tD);}catch(e){} } tremUnref(v.tkLive);
+      v.tkLive=v.tk; tremRef(v.tk).connect(v.tD); }
+    if(v.state==="on") glide(v.tD.gain,v.tsign*v.td/2,0.12);
+  },400);
+}
+/* the twin beating wanders: a few voices at a time ramp to a new detune */
+function wanderDetune(){
+  const act=activeVoices(); if(!act.length) return;
+  const k=Math.max(1,Math.ceil(act.length*0.06)), w=0.5+P.drift*7, r=3/S.evoRate;
+  for(let i=0;i<k;i++){ const v=act[(Math.random()*act.length)|0], dur=(4+Math.random()*6)*r;
+    ramp(v.oB.detune,P.detune/2+(Math.random()*2-1)*w,dur);
+    ramp(v.oA.detune,-P.detune/2+(Math.random()*2-1)*w*0.4,dur); }
+}
+function activeVoices(){ const out=[]; for(const v of LIVE) if(v.state==="on") out.push(v); return out; }
+
+/* metered voice starts: a few per frame, never past the live ceiling */
+function pumpVoices(){
+  if(!ac||!S.startQ.length) return;
+  const cap=liveCap(); let started=0;
+  while(S.startQ.length && started<3){
+    if(LIVE.size>=cap){ hastenOldest(LIVE.size-cap+2); break; }
+    const n=S.startQ.shift(); n.queued=false;
+    if(S.nodes.get(n.pathId)!==n || n.voice || n.pruned || n.decaying || !n.wanted) continue;
+    startVoice(n); started++;
+  }
+}
+function hastenOldest(k,tau){
+  const rel=[...LIVE].filter(v=>v.state==="rel"&&!v.hastened).sort((a,b)=>a.t0-b.t0);
+  for(const v of rel){ if(k<=0)break; if(hasten(v,tau)){ v.hastened=true; k--; } }
+}
+/* staggered species crossfades: old timbre fades out while the new one fades in */
+function pumpSwaps(now){
+  if(!ac||!S.swapQ.length) return;
+  let done=0;
+  for(let i=0;i<S.swapQ.length && done<2;i++){
+    const job=S.swapQ[i]; if(job.at>now) continue;
+    if(LIVE.size>=liveCap()) break;
+    S.swapQ.splice(i--,1);
+    const n=job.n, v=n.voice; n.species=P.species;
+    if(!v || v.species===P.species || S.nodes.get(n.pathId)!==n) continue;
+    releaseVoice(v,1.3); startVoice(n,0.5); done++;
+  }
+}
+function respecies(){
+  const now=performance.now(), voiced=[];
+  for(const n of S.nodes.values()){ if(n.voice) voiced.push(n); else n.species=P.species; }
+  for(let i=voiced.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [voiced[i],voiced[j]]=[voiced[j],voiced[i]]; }
+  S.swapQ=voiced.map((n,k)=>({n,at:now+(k/Math.max(1,voiced.length))*2600+Math.random()*300}));
+}
+
+/* ---- voice allocation: which nodes deserve one of the DENSITY voices ----
+   a quarter of the budget anchors the trunk; the rest is dealt round-robin across depth
+   bands (full-spectrum chord), newest growth first — voiced nodes get a hysteresis bonus
+   so the canopy migrates upward gradually instead of churning every split */
+function allocate(relTau){
+  S.allocDirty=false; S.lastAlloc=performance.now();
+  const B=effBudget(), cand=[];
+  for(const n of S.nodes.values()){ n.wanted=false; if(!n.pruned && !n.decaying) cand.push(n); }
+  cand.sort((a,b)=>a.depth-b.depth||a.born-b.born);
+  const nA=Math.min(cand.length,Math.ceil(B*0.25)), want=cand.slice(0,nA);
+  const bands=new Map();
+  for(let i=nA;i<cand.length;i++){ const n=cand[i]; let l=bands.get(n.depth); if(!l)bands.set(n.depth,l=[]); l.push(n); }
+  const score=n=>n.bornGen+(n.voice?1.5:0);
+  const lists=[...bands.keys()].sort((a,b)=>a-b).map(d=>bands.get(d).sort((a,b)=>score(b)-score(a)||a.h-b.h));
+  for(let k=0;want.length<B;k++){ let any=false;
+    for(const l of lists){ if(k<l.length && want.length<B){ want.push(l[k]); any=true; } }
+    if(!any) break; }
+  for(const n of want) n.wanted=true;
+  for(const n of S.nodes.values()) if(n.voice && !n.wanted) releaseVoice(n.voice,relTau||1.6);
+  for(const n of want) if(!n.voice && !n.queued){ n.queued=true; S.startQ.push(n); }
 }
 function updateUnder(){
-  if(!ac)return; const t=ac.currentTime;
+  if(!ac)return;
   const depthReach=S.maxDepth||0;
   const density=Math.min(1,S.nodes.size/500);
-  subGain.gain.setTargetAtTime((0.10+depthReach*0.05)*Math.min(1,0.3+density),t,0.6);
-  noiseGain.gain.setTargetAtTime(P.noise*density,t,0.8);
-  noiseLP.frequency.setTargetAtTime(120+depthReach*35,t,1);
+  glide(subGain.gain,S.planted?(0.10+depthReach*0.05)*Math.min(1,0.3+density):0,0.6);
+  glide(noiseGain.gain,S.planted?P.noise*density:0,0.8);
+  ramp(noiseLP.frequency,120+depthReach*35,2.5,true);
 }
-/* live-retune every branch. glide = time-constant (short for slider, long for harmony drift).
-   effective root = base root × current progression ratio (grafted nodes keep their blend). */
-function retuneAll(glide){
-  if(!ac)return; const t=ac.currentTime, tau=glide||0.12;
-  const eff=P.rootfreq*(S.progRatio||1);
-  if(subOsc)subOsc.frequency.setTargetAtTime(eff/2,t,tau);
+/* live-retune every branch + bed + resonators. glide = time-constant.
+   effective root = base root × current progression ratio (grafts keep their blend ratio). */
+function retuneAll(tau){
+  if(!ac)return; tau=tau||P.glide; const eff=effRoot();
+  const dur=Math.max(0.03,tau*2.5);
+  ramp(subOsc.frequency,subFreq(),dur,true);
+  for(const p of BED) ramp(p.o.frequency,eff*p.h,dur,true);
+  levelBed(Math.max(tau,0.3));
+  for(const s of SYM) glide(s.d.delayTime,1/symFreq(s.r),dur/3);   // delay lines must move continuously
   for(const n of S.nodes.values()){
-    if(n.grafted) continue;
-    n.freq=foldFreq(eff*n.ratioMul, n.depth);
-    const v=n.voice; if(!v)continue;
-    v.osc.frequency.setTargetAtTime(n.freq,t,tau);
-    if(v.osc2)v.osc2.frequency.setTargetAtTime(n.freq,t,tau);
-    const bpf=Math.min(10000,n.freq*(1+n.depth*0.5));
-    v.bp.frequency.setTargetAtTime(bpf,t,tau);
-    if(v.bp2)v.bp2.frequency.setTargetAtTime(bpf,t,tau);
-    v.bpBase=bpf;
-    if(v.filtDepth)v.filtDepth.gain.setTargetAtTime(bpf*(0.12+P.drift*0.45),t,tau);
-    if(v.fm) v.fm.frequency.setTargetAtTime(n.freq*1.5,t,tau);
+    n.freq=leadFreq(eff*n.ratioMul*(n.graftMul||1),n.freq,n.depth);
+    if(n.voice) tuneVoice(n.voice,n,tau);
   }
 }
 
 /* ============================================================
-   4. GROWTH LOOP  (Deep-Time clock)
+   4. GROWTH  —  every re-derivation is a MORPH of the living tree
    ============================================================ */
 function grow(){
   if(S.targetGen>=P.maxgen) return;
   S.targetGen++;
-  render();
+  morph(Math.max(P.glide,0.6));
 }
-function render(){
-  const segs=interpret(derive(S.targetGen));
+/* re-derive and diff against the living tree by pathId:
+   · surviving branches take their new geometry and GLIDE (tau) to their new pitch & pan
+   · vanished branches fade out (relTau) · new branches are drawn and queued for voices */
+function morph(tau,relTau){
+  tau=tau==null?P.glide:tau; relTau=relTau||1.2;
+  let segs;
+  try{ segs=interpret(derive(S.targetGen)); }
+  catch(e){ console.warn(e); inspector("⚠ could not interpret rules: "+e.message); return; }
   // fit transform: compute bounds
   let minx=0,maxx=0,miny=0,maxy=0;
   for(const s of segs){ minx=Math.min(minx,s.x0,s.x1);maxx=Math.max(maxx,s.x0,s.x1);
     miny=Math.min(miny,s.y0,s.y1);maxy=Math.max(maxy,s.y0,s.y1); }
   const pad=30, bw=Math.max(1,maxx-minx), bh=Math.max(1,maxy-miny);
   svg.setAttribute("viewBox",`${minx-pad} ${miny-pad} ${bw+pad*2} ${bh+pad*2}`);
+  S.bounds={cx:(minx+maxx)/2, hw:Math.max(20,(maxx-minx)/2)};
+  const eff=effRoot(), seen=new Set(); S.kids=new Map(); S.maxDepth=0;
   for(const s of segs){
-    if(S.pruned.has(s.pathId)) continue; // stays snipped
-    let node=S.nodes.get(s.pathId);
-    if(!node){
-      // NEW branch this generation → born
-      node=makeNode(s);
-      S.nodes.set(s.pathId,node);
-      drawSeg(node);
-      startVoice(node);
+    seen.add(s.pathId);
+    if(s.parent){ let k=S.kids.get(s.parent); if(!k)S.kids.set(s.parent,k=[]); k.push(s.pathId); }
+    let n=S.nodes.get(s.pathId);
+    if(S.pruned.has(s.pathId) || (s.parent && S.pruned.has(s.parent))){ // snipped limbs never re-sprout
+      S.pruned.add(s.pathId);
+      if(n){ if(!n.pruned) markPruned(n); updateGeom(n,s); placeSeg(n); }
+      continue;
+    }
+    if(s.depth>S.maxDepth) S.maxDepth=s.depth;
+    if(n){
+      const moved=updateGeom(n,s);
+      n.freq=leadFreq(eff*n.ratioMul*(n.graftMul||1),n.freq,n.depth);
+      if(moved) placeSeg(n);
+      if(n.voice) tuneVoice(n.voice,n,tau);
+    } else {
+      n=makeNode(s); S.nodes.set(s.pathId,n); drawSeg(n);
     }
   }
-  // graft lines refresh
-  drawGrafts();
+  for(const [pid,n] of S.nodes){
+    if(seen.has(pid)) continue;
+    if(n.voice) releaseVoice(n.voice,relTau);
+    removeSeg(n); S.nodes.delete(pid);
+    if(S.selected===n){ clearSelection(); $("nodecard").style.display="none"; }
+    if(S.graftPick===n) S.graftPick=null;
+  }
+  S.grafts=S.grafts.filter(g=>S.nodes.has(g.from)&&S.nodes.has(g.to));
+  S.agingList=null;
   S.gen=S.targetGen;
-  updateUnder();
-  updateStatus();
+  allocate(); drawGrafts(); updateUnder(); updateStatus();
 }
+function requestMorph(tau){ if(S.planted) S.morphPending=(tau==null?P.glide:tau); }
 function makeNode(s){
-  const freq=foldFreq(P.rootfreq*(S.progRatio||1)*s.ratio, s.depth);
-  if(s.depth>S.maxDepth) S.maxDepth=s.depth;
-  return {...s, species:P.species, freq, ratioMul:s.ratio, muted:false,
-    decaying:false, age:0, voice:null, el:null};
+  const pid=s.pathId;
+  return {...s, species:P.species, freq:foldFreq(effRoot()*s.ratio,s.depth), ratioMul:s.ratio,
+    graftMul:1, grafted:false, pruned:false, decaying:false, age:0,
+    ageLimit:9000+hash01(pid+"a")*14000,   // staggered so leaves rot one by one, not all at once
+    born:S.bornSeq++, bornGen:S.targetGen, h:hash01(pid+"h"),
+    voice:null, queued:false, wanted:false, el:null, hit:null, leaf:null};
+}
+function updateGeom(n,s){
+  const moved=n.x0!==s.x0||n.y0!==s.y0||n.x1!==s.x1||n.y1!==s.y1;
+  n.x0=s.x0; n.y0=s.y0; n.x1=s.x1; n.y1=s.y1; n.turn=s.turn; n.ang=s.ang;
+  n.ratio=s.ratio; n.ratioMul=s.ratio; n.label=s.label; n.parent=s.parent;
+  return moved;
 }
 function drawSeg(node){
   const w=Math.max(0.6,3.4*Math.pow(0.78,node.depth));
@@ -808,6 +1217,8 @@ function drawSeg(node){
   ln.dataset.pid=node.pathId;
   svg.appendChild(ln);
   requestAnimationFrame(()=>ln.setAttribute("stroke-dashoffset",0));
+  // once drawn, drop the dash so later morphs can stretch the line freely
+  setTimeout(()=>{ if(!node.pruned && node.el===ln){ ln.removeAttribute("stroke-dasharray"); ln.removeAttribute("stroke-dashoffset"); } },750);
   node.el=ln; node.baseW=w;
   // --- fat invisible hit target: generous, easy to click on any branch ---
   const hit=document.createElementNS(SVGNS,"line");
@@ -820,10 +1231,10 @@ function drawSeg(node){
   hit.addEventListener("click",e=>{e.stopPropagation();onSegClick(node);});
   hit.addEventListener("dblclick",e=>{e.stopPropagation();toggleSolo(node);});
   hit.addEventListener("mouseenter",()=>{ hover(node);
-    if(!S.pruned.has(node.pathId)){ ln.setAttribute("stroke","var(--sel)"); ln.setAttribute("stroke-width",w+0.8);} });
+    if(!node.pruned){ ln.setAttribute("stroke","var(--sel)"); ln.setAttribute("stroke-width",w+0.8);} });
   hit.addEventListener("mouseleave",()=>{ $("hud").dataset.hover="";
-    if(node.el&&!node.selected&&!S.pruned.has(node.pathId)){
-    ln.setAttribute("stroke",ln.dataset.baseCol); ln.setAttribute("stroke-width",node.baseW);} });
+    if(node.el&&!node.selected&&!node.pruned){
+    ln.setAttribute("stroke",node.decaying?"#6b5a2b":ln.dataset.baseCol); ln.setAttribute("stroke-width",node.baseW);} });
   svg.appendChild(hit);
   node.hit=hit;
   // leaf dot for terminal-ish thin branches
@@ -834,6 +1245,12 @@ function drawSeg(node){
     c.setAttribute("opacity","0.9"); c.style.pointerEvents="none"; svg.appendChild(c); node.leaf=c;
   }
 }
+function placeSeg(n){
+  for(const el of [n.el,n.hit]){ if(!el)continue;
+    el.setAttribute("x1",n.x0); el.setAttribute("y1",n.y0); el.setAttribute("x2",n.x1); el.setAttribute("y2",n.y1); }
+  if(n.leaf){ n.leaf.setAttribute("cx",n.x1); n.leaf.setAttribute("cy",n.y1); }
+}
+function removeSeg(n){ for(const el of [n.el,n.hit,n.leaf]) if(el) el.remove(); n.el=n.hit=n.leaf=null; }
 function lerpCol(a,b,t){ const r=Math.round(a[0]+(b[0]-a[0])*t),g=Math.round(a[1]+(b[1]-a[1])*t),
   bl=Math.round(a[2]+(b[2]-a[2])*t); return `rgb(${r},${g},${bl})`; }
 
@@ -843,56 +1260,55 @@ function lerpCol(a,b,t){ const r=Math.round(a[0]+(b[0]-a[0])*t),g=Math.round(a[1
 function onSegClick(node){
   if(S.tool==="prune") pruneNode(node);
   else if(S.tool==="graft") graftNode(node);
-  else if(S.tool==="inspect") inspectNode(node);
   else inspectNode(node);
 }
+/* the limb above a segment: every segment that grows out of it (via parent links) */
 function collectSubtree(pid){
-  const out=[]; for(const [k,n] of S.nodes){ if(k===pid||k.startsWith(pid)) out.push(n); }
+  const out=[], q=[pid], seen=new Set();
+  while(q.length){ const id=q.pop(); if(seen.has(id))continue; seen.add(id);
+    const n=S.nodes.get(id); if(n)out.push(n);
+    const k=S.kids.get(id); if(k) for(const c of k) q.push(c); }
   return out;
+}
+function markPruned(n){
+  n.pruned=true; n.wanted=false; S.pruned.add(n.pathId);
+  if(n.voice) releaseVoice(n.voice,0.07);   // a quick snip — still a fade, never a cut
+  if(n.el){ n.el.setAttribute("stroke","#7a2b2b"); n.el.style.opacity="0.35";
+    n.el.setAttribute("stroke-dasharray","2 3"); n.el.removeAttribute("stroke-dashoffset"); }
+  if(n.hit){ n.hit.style.pointerEvents="none"; }
+  if(n.leaf){ n.leaf.remove(); n.leaf=null; }
 }
 function pruneNode(node){
   const sub=collectSubtree(node.pathId);
-  for(const n of sub){
-    S.pruned.add(n.pathId);
-    if(n.voice) stopVoice(n,true);
-    if(n.el){ n.el.setAttribute("stroke","#7a2b2b"); n.el.style.opacity="0.35";
-      n.el.setAttribute("stroke-dasharray","2 3"); }
-    if(n.hit){ n.hit.style.pointerEvents="none"; }
-    if(n.leaf){ n.leaf.remove(); n.leaf=null; }
-  }
-  S.pruned.add(node.pathId);
-  if(S.selected && S.pruned.has(S.selected.pathId)){ clearSelection(); $("nodecard").style.display="none"; }
+  for(const n of sub) markPruned(n);
+  S.allocDirty=true;
+  if(S.selected && S.selected.pruned){ clearSelection(); $("nodecard").style.display="none"; }
   inspector(`✂ SNIPPED ${node.pathId} — muted ${sub.length} node(s). Growth halted on this limb.`);
   updateStatus();
 }
 function clearSelection(){
-  if(S.lineage){ for(const n of S.lineage){ if(n.el&&!S.pruned.has(n.pathId)){
-    n.el.setAttribute("stroke",n.el.dataset.baseCol); n.el.setAttribute("stroke-width",n.baseW);
+  if(S.lineage){ for(const n of S.lineage){ if(n.el&&!n.pruned){
+    n.el.setAttribute("stroke",n.decaying?"#6b5a2b":n.el.dataset.baseCol); n.el.setAttribute("stroke-width",n.baseW);
     n.el.style.filter=""; } n.selected=false; } }
   S.lineage=null; S.selected=null;
 }
 function graftNode(node){
   if(!S.graftPick){ S.graftPick=node;
     if(node.el)node.el.setAttribute("stroke","var(--graft)");
-    inspector(`◄ GRAFT: source limb ${node.pathId} selected (ratio ${node.freq.toFixed(1)}Hz). Now click a target limb.`);
+    inspector(`◄ GRAFT: source limb ${node.pathId} selected (${node.freq.toFixed(1)}Hz). Now click a target limb.`);
   } else {
     const from=S.graftPick, to=node;
-    S.grafts.push({from:from.pathId,to:to.pathId,el:null});
-    // sonic merge: retune target subtree toward source ratio
+    S.grafts.push({from:from.pathId,to:to.pathId});
+    // sonic merge: pull the target limb toward the source pitch; kept as a ratio so it
+    // survives later retunes, harmony drift and morphs
     const sub=collectSubtree(to.pathId);
     for(const n of sub){
-      n.grafted=true;
-      const blended=foldFreq((n.freq+from.freq)/2, n.depth);
-      n.freq=blended;
-      if(n.voice){ n.voice.osc.frequency.setTargetAtTime(blended,ac.currentTime,0.8);
-        if(n.voice.osc2)n.voice.osc2.frequency.setTargetAtTime(blended,ac.currentTime,0.8);
-        const gbpf=Math.min(10000,blended*(1+n.depth*0.5));
-        n.voice.bp.frequency.setTargetAtTime(gbpf,ac.currentTime,0.8);
-        if(n.voice.bp2)n.voice.bp2.frequency.setTargetAtTime(gbpf,ac.currentTime,0.8);
-        n.voice.bpBase=gbpf;
-        if(n.voice.filtDepth)n.voice.filtDepth.gain.setTargetAtTime(gbpf*(0.12+P.drift*0.45),ac.currentTime,0.8); }
+      if(n.pruned) continue;
+      const blended=(n.freq+from.freq)/2;
+      n.graftMul=(n.graftMul||1)*blended/n.freq; n.grafted=true; n.freq=blended;
+      if(n.voice) tuneVoice(n.voice,n,0.8);
     }
-    if(from.el)from.el.setAttribute("stroke",from.el.dataset.baseCol||lerpCol([0x3a,0x6f,0x4f],[0x9f,0xff,0xc0],Math.min(1,from.depth/6)));
+    if(from.el)from.el.setAttribute("stroke",from.el.dataset.baseCol);
     S.graftPick=null;
     inspector(`▬ GRAFTED ${from.pathId} → ${to.pathId}. ${sub.length} voices merged toward ${from.freq.toFixed(1)}Hz.`);
     drawGrafts();
@@ -913,12 +1329,11 @@ function drawGrafts(){
   }
 }
 /* ---------- SOLO: isolate one harmonic thread (root→branch lineage) ---------- */
-function isInSolo(node){ return S.soloSet ? S.soloSet.has(node.pathId) : false; }
 function applySolo(){
-  if(!ac) return; const t=ac.currentTime;
-  for(const n of S.nodes.values()){ const v=n.voice; if(!v||!v.mute)continue;
-    const target=(!S.soloSet)?1:(S.soloSet.has(n.pathId)?1:0);
-    v.mute.gain.setTargetAtTime(target,t,0.08); }
+  if(!ac) return;
+  for(const v of LIVE){ if(v.rot) continue;
+    const target=(!S.soloSet)?1:(v.node&&S.soloSet.has(v.node.pathId)?1:0);
+    glide(v.clean.gain,target,0.08); }
 }
 function toggleSolo(node){
   if(S.soloed===node.pathId){ S.soloed=null; S.soloSet=null; applySolo();
@@ -943,10 +1358,11 @@ function auditionFreq(freq,voiced){
   if(!ac) return;
   const t=ac.currentTime, o=ac.createOscillator(), g=ac.createGain();
   o.type="triangle"; o.frequency.value=freq;
-  g.gain.setValueAtTime(0.0001,t);
-  g.gain.exponentialRampToValueAtTime(voiced?0.22:0.14,t+0.02);
-  g.gain.exponentialRampToValueAtTime(0.0001,t+0.75);
-  o.connect(g); g.connect(canopyBus); o.start(t); o.stop(t+0.8);
+  g.gain.setValueAtTime(0,t);
+  g.gain.setTargetAtTime(voiced?0.22:0.14,t,0.008);
+  g.gain.setTargetAtTime(0,t+0.05,0.12);
+  o.connect(g); g.connect(canopyBus); o.start(t); o.stop(t+1.3);
+  o.onended=()=>{ try{o.disconnect();g.disconnect();}catch(e){} };
 }
 function lineageOf(node){
   const chain=[]; let p=node, guard=0;
@@ -959,7 +1375,7 @@ function inspectNode(node){
   auditionFreq(node.freq, !!node.voice);
   // highlight root→branch lineage
   const chain=lineageOf(node); S.lineage=chain; S.selected=node; node.selected=true;
-  chain.forEach((n,i)=>{ if(!n.el||S.pruned.has(n.pathId))return;
+  chain.forEach((n,i)=>{ if(!n.el||n.pruned)return;
     n.selected=true;
     n.el.setAttribute("stroke", i===0?"var(--sel)":"#ffd27a");
     n.el.setAttribute("stroke-width", n.baseW + (i===0?1.4:0.7));
@@ -992,8 +1408,19 @@ function inspector(t){ $("inspector").textContent=t; }
 /* ============================================================
    6. MAIN TICK
    ============================================================ */
+const DEFER=new Map();   // slider work that loops over voices runs at most once per frame
+function defer(key,fn){ DEFER.set(key,fn); }
+function flushDeferred(){
+  if(!DEFER.size) return;
+  const fns=[...DEFER.values()]; DEFER.clear();
+  for(const fn of fns){ try{ fn(); }catch(e){ console.warn(e); } }
+}
 function tick(){
-  const now=performance.now(), dt=now-S.lastT; S.lastT=now;
+  const now=performance.now(), dt=Math.min(100,now-S.lastT); S.lastT=now;   // clamp: a backgrounded tab doesn't age everything at once
+  flushDeferred();
+  if(S.morphPending!=null && now-S.lastMorph>=90){ const tau=S.morphPending; S.morphPending=null; S.lastMorph=now; morph(tau); }
+  if(S.allocDirty && now-S.lastAlloc>=250) allocate();
+  pumpVoices(); pumpSwaps(now);
   if(S.running && S.planted){
     let fert=P.fert;
     if(now<S.fertBurstUntil) fert=Math.max(fert,4);
@@ -1004,24 +1431,34 @@ function tick(){
       S.progAcc+=dt;
       const step=90000/S.evoRate;                 // 90s at rate 1 → 7.5s at rate 12
       if(S.progAcc>=step){ S.progAcc=0;
-        S.progIdx=(S.progIdx+1)%PROGRESSION.length; S.progRatio=PROGRESSION[S.progIdx];
+        const R=progRatios();
+        S.progIdx=(S.progIdx+1)%R.length; S.progRatio=R[S.progIdx];
         retuneAll(6);                              // long glide → swells into the new key
-        $("harmstat").textContent="root: "+PROG_LABEL[S.progIdx]+"  ("+(P.rootfreq*S.progRatio).toFixed(1)+"Hz)";
-        inspector("♪ Harmony drift → "+PROG_LABEL[S.progIdx]);
+        $("harmstat").textContent="root: "+progLabel(S.progIdx)+"  ("+effRoot().toFixed(1)+"Hz)";
+        inspector("♪ Harmony drift → "+progLabel(S.progIdx));
       }
     }
-    // aging & decay of fully-grown limbs
-    if(S.targetGen>=P.maxgen){
-      if(!S.agingList){                    // (re)build the small aging candidate list on completion or after a rebuild
-        if(!S.completeAt) S.completeAt=now;
-        S.agingList=[...S.nodes.values()].filter(n=>n.depth>=P.maxgen-1 && n.voice && !S.pruned.has(n.pathId));
+    // 🍃 metamorphosis: the branch angle wanders around your θ; the canopy re-voices as it bends
+    if(P.morph){
+      S.morphAcc+=dt;
+      if(S.morphAcc>=700){ S.morphAcc=0;
+        const ts=now/1000, r=S.evoRate/3;
+        const d=Math.sin(ts*0.031*r+0.7)*0.6+Math.sin(ts*0.0137*r+2.3)*0.4;
+        const th=clamp(+(P.theta+P.morphDepth*d).toFixed(1),10,90);
+        const wd=Math.max(0,+(P.wind+Math.abs(Math.sin(ts*0.021*r+1.1))*1.5).toFixed(1));
+        if(S.metaTheta==null||Math.abs(th-S.metaTheta)>=0.2||Math.abs(wd-S.metaWind)>=0.2){
+          S.metaTheta=th; S.metaWind=wd; requestMorph(Math.max(1.5,P.glide*3)); }
       }
-      const list=S.agingList;
-      for(let i=list.length-1;i>=0;i--){ const n=list[i];
-        if(n.decaying||!n.voice||S.pruned.has(n.pathId)){ list.splice(i,1); continue; }
+    }
+    // aging & rot of fully-grown terminal limbs
+    if(S.targetGen>=P.maxgen){
+      if(!S.completeAt) S.completeAt=now;
+      if(!S.agingList) S.agingList=[...S.nodes.values()].filter(n=>!n.pruned&&!n.decaying&&!S.kids.has(n.pathId));
+      for(const n of S.agingList){
+        if(!n.voice||n.decaying) continue;
         n.age+=dt;
-        if(n.age>9000){ n.decaying=true; decayVoice(n); S.decayCount++;
-          if(n.el)n.el.setAttribute("stroke","#6b5a2b"); list.splice(i,1); }
+        if(n.age>n.ageLimit){ n.decaying=true; rotVoice(n.voice); S.decayCount++; S.allocDirty=true;
+          if(n.el&&!n.selected)n.el.setAttribute("stroke","#6b5a2b"); }
       }
       // ♾ perpetual: after the canopy has held & largely decayed, re-seed a new cycle
       if(P.perpetual && now-S.completeAt>PERPETUAL_HOLD){ perpetualBloom(); }
@@ -1034,16 +1471,50 @@ function tick(){
                      : `GROWTH CLOCK: CANOPY COMPLETE — entropy phase`)
       : `GROWTH CLOCK: next split in ${remain.toFixed(1)}s ${fert>1?"(fert ×"+fert+")":""}`;
   }
-  // hud (throttled — cosmetic text doesn't need 60fps)
-  S.frame=(S.frame||0)+1;
-  if(S.frame%6===0){
-    $("hud").innerHTML=`<b>GEN</b> ${S.gen}/${P.maxgen} &nbsp; <b>θ</b> ${P.theta}°<br>`+
-      `<b>NODES</b> ${S.nodes.size} &nbsp; <b>VOX</b> ${S.voicesActive}/${S.voiceBudget}<br>`+
-      `<b>ROOT</b> ${P.rootfreq}Hz`+ ($("hud").dataset.hover?`<br>▸ ${$("hud").dataset.hover}`:"");
+  // slow living layers (run while planted, even when growth is paused)
+  if(ac && S.planted){
+    S.bedAcc+=dt;
+    if(S.bedAcc>=2400*3/S.evoRate){ S.bedAcc=0; evolveBed(); }
+    S.swellAcc+=dt;
+    if(S.swellAcc>=320){ S.swellAcc=0; swellVoices(); }
+    S.detAcc=(S.detAcc||0)+dt;
+    if(S.detAcc>=1100){ S.detAcc=0; wanderDetune(); }
+    sampleLag();
+    S.govAcc=(S.govAcc||0)+dt;
+    if(S.govAcc>=1000){ S.govAcc=0; governor(); }
   }
-  if(S.frame%18===0) updateSounding();
-  if(S.seasons && S.frame%4===0) updateSeasons(now);
+  if(S.seasons){ S.seasonAcc+=dt; if(S.seasonAcc>=250){ S.seasonAcc=0; updateSeasons(now); } }
+  // hud (throttled — cosmetic text doesn't need 60fps)
+  S.frame++;
+  if(S.frame%6===0){
+    $("hud").innerHTML=`<b>GEN</b> ${S.gen}/${P.maxgen} &nbsp; <b>θ</b> ${effTheta()}°<br>`+
+      `<b>NODES</b> ${S.nodes.size} &nbsp; <b>VOX</b> ${S.voicesActive}/${effBudget()}${GOV.ceil<S.voiceBudget?" (cpu guard)":""}<br>`+
+      `<b>ROOT</b> ${effRoot().toFixed(1)}Hz`+ ($("hud").dataset.hover?`<br>▸ ${$("hud").dataset.hover}`:"");
+  }
+  if(S.frame%18===0){ updateSounding(); updateStatus(); }
+  if(S.frame%30===0) engineHousekeeping();
   requestAnimationFrame(tick);
+}
+/* level-normalise the canopy to the voice count, free any voice whose 'ended' never fired,
+   and surface the browser's own glitch counter if it exposes one */
+function engineHousekeeping(){
+  if(!ac) return;
+  glide(canopyNorm.gain,Math.min(1,Math.sqrt(24/Math.max(1,S.voicesActive))),1.5);
+  const t=ac.currentTime;
+  for(const v of LIVE) if(v.state==="rel" && t>v.endAt+3) freeVoice(v);
+  sweepTremBank();
+  // XRUN: underruns the browser reports since planting; where it reports none, the guard's own count
+  const u=underrunStats();
+  if(u && GOV.xrun0==null && S.planted) GOV.xrun0=u.n;
+  $("sXrun").textContent=u&&GOV.xrun0!=null ? u.n-GOV.xrun0 : GOV.events;
+}
+/* SWELL: a few voices at a time drift to new loudness → the canopy glitters slowly */
+function swellVoices(){
+  if(P.swell<=0) return;
+  const act=activeVoices(); if(!act.length) return;
+  const k=Math.max(1,Math.ceil(act.length*0.07)), r=3/S.evoRate;
+  for(let i=0;i<k;i++){ const v=act[(Math.random()*act.length)|0];
+    glide(v.env.gain,v.amp*swellLevel(),(1.2+Math.random()*4.5)*r); }
 }
 /* live tally of currently-voicing Just-Intonation intervals */
 function updateSounding(){
@@ -1061,6 +1532,7 @@ function updateSounding(){
 function updateStatus(){
   $("sGen").textContent=S.gen; $("sNodes").textContent=S.nodes.size;
   $("sVoices").textContent=S.voicesActive; $("sDecay").textContent=S.decayCount;
+  $("sLive").textContent=LIVE.size;
 }
 
 /* ============================================================
@@ -1086,31 +1558,60 @@ function midiNoteOn(node){ if(!midiPort)return; const n=freqToMidi(node.freq);
 function midiNoteOff(node){ if(!midiPort||node.midiNote==null)return; try{midiPort.send([0x80,node.midiNote,0]);}catch(e){} node.midiNote=null; }
 
 /* ============================================================
-   8. WAV RECORDER (PCM tap → 16-bit wav)
+   8. WAV RECORDER (audio-thread PCM tap → 16-bit wav)
    ============================================================ */
-let recording=false, recProc, recL=[], recR=[];
-$("recwav").onclick=()=>{
+const REC_WORKLET=`
+class RecTap extends AudioWorkletProcessor{
+  constructor(){ super(); this.n=0; this.L=new Float32Array(16384); this.R=new Float32Array(16384); this.live=true;
+    this.port.onmessage=e=>{ if(e.data==="flush"){ this.flush(); this.port.postMessage("done"); } else if(e.data==="end") this.live=false; }; }
+  flush(){ if(this.n){ this.port.postMessage([this.L.slice(0,this.n),this.R.slice(0,this.n)]); this.n=0; } }
+  process(inputs){ const i=inputs[0];
+    if(this.live && i && i.length){ const l=i[0], r=i[1]||i[0];
+      if(this.n+l.length>this.L.length) this.flush();
+      this.L.set(l,this.n); this.R.set(r,this.n); this.n+=l.length; }
+    return this.live; }
+}
+registerProcessor("rec-tap",RecTap);`;
+let recording=false, recBusy=false, recNode=null, recProc=null, recL=[], recR=[];
+$("recwav").onclick=async()=>{
   if(!ac){ inspector("Plant a seed first — audio engine is asleep."); return; }
-  if(!recording){
-    recL=[];recR=[];
-    const bufSize=4096;
-    recProc=ac.createScriptProcessor(bufSize,2,2);
-    recProc.onaudioprocess=e=>{
-      recL.push(new Float32Array(e.inputBuffer.getChannelData(0)));
-      recR.push(new Float32Array(e.inputBuffer.getChannelData(1)));
-    };
-    recDest.connect(recProc); recProc.connect(ac.destination); // needs a sink to pull
-    recording=true; $("recwav").textContent="■ STOP REC"; $("recwav").classList.add("on");
-    $("recstat").textContent="recorder: ● RECORDING…";
-  } else {
-    recording=false; try{recProc.disconnect();recDest.disconnect(recProc);}catch(e){}
-    $("recwav").textContent="● REC .WAV"; $("recwav").classList.remove("on");
-    const wav=encodeWav(recL,recR,ac.sampleRate);
-    const url=URL.createObjectURL(wav);
-    const a=document.createElement("a"); a.href=url; a.download="botanical-drone.wav"; a.click();
-    const secs=(recL.reduce((s,b)=>s+b.length,0)/ac.sampleRate).toFixed(1);
-    $("recstat").innerHTML=`recorder: saved ${secs}s → <a class="dl" href="${url}" download="botanical-drone.wav">botanical-drone.wav</a>`;
-  }
+  if(recBusy) return; recBusy=true;
+  try{
+    if(!recording){
+      recL=[];recR=[];
+      if(await workletReady){
+        recNode=new AudioWorkletNode(ac,"rec-tap",{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[1],
+          channelCount:2,channelCountMode:"explicit",channelInterpretation:"discrete"});
+        recNode.port.onmessage=e=>{ if(Array.isArray(e.data)){ recL.push(e.data[0]); recR.push(e.data[1]); }
+          else if(e.data==="done" && recNode && recNode._done) recNode._done(); };
+        const sink=ac.createGain(); sink.gain.value=0; recNode.connect(sink); sink.connect(ac.destination); recNode._sink=sink;
+        recDest.connect(recNode);
+      } else {
+        recProc=ac.createScriptProcessor(4096,2,2);
+        recProc.onaudioprocess=e=>{
+          recL.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+          recR.push(new Float32Array(e.inputBuffer.getChannelData(1)));
+        };
+        recDest.connect(recProc); recProc.connect(ac.destination); // needs a sink to pull
+      }
+      recording=true; $("recwav").textContent="■ STOP REC"; $("recwav").classList.add("on");
+      $("recstat").textContent="recorder: ● RECORDING…";
+    } else {
+      recording=false;
+      if(recNode){ const node=recNode;
+        await new Promise(res=>{ node._done=res; node.port.postMessage("flush"); setTimeout(res,600); });
+        node.port.postMessage("end");
+        try{ recDest.disconnect(node); node.disconnect(); node._sink.disconnect(); }catch(e){}
+        recNode=null;
+      } else if(recProc){ try{recProc.disconnect();recDest.disconnect(recProc);}catch(e){} recProc=null; }
+      $("recwav").textContent="● REC .WAV"; $("recwav").classList.remove("on");
+      const wav=encodeWav(recL,recR,ac.sampleRate);
+      const url=URL.createObjectURL(wav);
+      const a=document.createElement("a"); a.href=url; a.download="botanical-drone.wav"; a.click();
+      const secs=(recL.reduce((s,b)=>s+b.length,0)/ac.sampleRate).toFixed(1);
+      $("recstat").innerHTML=`recorder: saved ${secs}s → <a class="dl" href="${url}" download="botanical-drone.wav">botanical-drone.wav</a>`;
+    }
+  } finally { recBusy=false; }
 };
 function flatten(chunks){ let len=0;chunks.forEach(c=>len+=c.length);const out=new Float32Array(len);
   let o=0;chunks.forEach(c=>{out.set(c,o);o+=c.length;});return out; }
@@ -1128,7 +1629,7 @@ function encodeWav(Lc,Rc,rate){
 /* SVG export */
 $("svgexp").onclick=()=>{
   const clone=svg.cloneNode(true);
-  const vb=svg.getAttribute("viewBox").split(" ");
+  const vb=(svg.getAttribute("viewBox")||"0 0 800 520").split(" ");
   const bg=document.createElementNS(SVGNS,"rect");
   bg.setAttribute("x",vb[0]);bg.setAttribute("y",vb[1]);bg.setAttribute("width",vb[2]);bg.setAttribute("height",vb[3]);
   bg.setAttribute("fill","#0a0d0a"); clone.insertBefore(bg,clone.firstChild);
@@ -1154,73 +1655,70 @@ document.querySelectorAll(".tool").forEach(t=>{
     if(S.tool!=="graft"&&S.graftPick){ S.graftPick=null; }
   };
 });
-// sliders
+// sliders: the value + readout update immediately; audio work is a glide (or deferred to the next frame)
 function bind(id,fn,fmt){ const el=$(id),v=$(id+"V");
   el.oninput=()=>{ const val=parseFloat(el.value); fn(val); if(v)v.textContent=fmt?fmt(val):val; }; }
-bind("theta",v=>P.theta=v,v=>v);
-bind("seglen",v=>P.seglen=v);
-bind("ldecay",v=>P.ldecay=v/100,v=>v);
-bind("maxgen",v=>{P.maxgen=v;});
-bind("wind",v=>{P.wind=v;});
-bind("master",v=>{P.master=v/100;if(master)master.gain.value=P.master;});
-bind("canopy",v=>{P.canopy=v/100;if(canopyBus)canopyBus.gain.setTargetAtTime(P.canopy,ac.currentTime,0.1);});
-bind("roots",v=>{P.roots=v/100;if(underBus)underBus.gain.setTargetAtTime(P.roots,ac.currentTime,0.1);});
-bind("noise",v=>{P.noise=v/100;updateUnder&&ac&&updateUnder();});
-bind("verb",v=>{P.verb=v/100;if(wet)wet.gain.setTargetAtTime(P.verb,ac.currentTime,0.1);});
-bind("lo",v=>{P.lo=v;if(loShelf)loShelf.gain.setTargetAtTime(P.lo,ac.currentTime,0.1);});
-bind("himid",v=>{P.himid=v;if(midPeak)midPeak.gain.setTargetAtTime(P.himid,ac.currentTime,0.1);});
-bind("air",v=>{P.air=v;if(airShelf)airShelf.gain.setTargetAtTime(P.air,ac.currentTime,0.1);});
-bind("drive",v=>{P.drive=v/100;if(driveMix)driveMix.gain.setTargetAtTime(P.drive,ac.currentTime,0.1);});
-bind("width",v=>{P.width=v/100;if(widthGain)widthGain.setTargetAtTime(P.width,ac.currentTime,0.08);});
-bind("space",v=>{P.space=v/100;if(spaceSend)spaceSend.gain.setTargetAtTime(P.space,ac.currentTime,0.1);});
-bind("pulse",v=>{P.pulse=v/10;
-  if(ac)for(const n of S.nodes.values())if(n.voice)n.voice.lfo.frequency.setTargetAtTime(Math.max(0.05,P.pulse*(n.ratioMul||1)),ac.currentTime,0.3);},
-  v=>(v/10).toFixed(1));
-bind("rootfreq",v=>{P.rootfreq=v;retuneAll();});
-$("species").onchange=e=>{ P.species=e.target.value; if(S.planted) softRebuild(); };
+// morphology re-shapes the living tree as you drag (throttled), and once more on release
+bind("theta",v=>{P.theta=v;requestMorph();},v=>v);
+bind("seglen",v=>{P.seglen=v;requestMorph();});
+bind("ldecay",v=>{P.ldecay=v/100;requestMorph();},v=>v);
+bind("maxgen",v=>{P.maxgen=v; if(S.targetGen>P.maxgen){ S.targetGen=P.maxgen; requestMorph(); } S.agingList=null;});
+bind("wind",v=>{P.wind=v;requestMorph();});
+bind("master",v=>{P.master=v/100;glide(master&&master.gain,P.master,0.05);});
+bind("canopy",v=>{P.canopy=v/100;glide(canopyBus&&canopyBus.gain,P.canopy,0.1);});
+bind("roots",v=>{P.roots=v/100;glide(underBus&&underBus.gain,P.roots,0.1);});
+bind("noise",v=>{P.noise=v/100;updateUnder();});
+bind("verb",v=>{P.verb=v/100;glide(wet&&wet.gain,P.verb,0.1);});
+bind("lo",v=>{P.lo=v;glide(loShelf&&loShelf.gain,P.lo,0.1);});
+bind("himid",v=>{P.himid=v;glide(midPeak&&midPeak.gain,P.himid,0.1);});
+bind("air",v=>{P.air=v;glide(airShelf&&airShelf.gain,P.air,0.1);});
+bind("drive",v=>{P.drive=v/100;glide(driveMix&&driveMix.gain,P.drive,0.1);});
+bind("width",v=>{P.width=v/100;glide(widthGain,P.width,0.08);});
+bind("space",v=>{P.space=v/100;glide(spaceSend&&spaceSend.gain,P.space,0.1);});
+bind("pulse",v=>{P.pulse=v/10; defer("trem",()=>retremAll(0.6));}, v=>(v/10).toFixed(1));
+bind("rootfreq",v=>{P.rootfreq=v; defer("root",()=>retuneAll(P.glide));});
+$("species").onchange=e=>{ P.species=e.target.value; if(S.planted) respecies(); };
 // deep time cycle: log-ish scale
 const CYCLES=[100,500,1000,2000,5000,30000,300000];
 const CYCLABEL=["0.1s","0.5s","1s","2s","5s","30s","5min"];
 $("cycle").oninput=e=>{ const i=+e.target.value; P.cycleMs=CYCLES[i];
   $("cycleV").textContent=CYCLABEL[i];
   $("cyclelbl").textContent="one branch-split every "+CYCLABEL[i];
-  if(P.tempoSync && ac){ const t=ac.currentTime, r=1000/P.cycleMs;
-    for(const n of S.nodes.values()){ const vo=n.voice; if(!vo)continue;
-      vo.lfo.frequency.setTargetAtTime(Math.max(0.05,r*(n.ratioMul||1)),t,0.4); } } };
+  if(P.tempoSync) defer("trem",()=>retremAll(1)); };
 $("fert").oninput=e=>{P.fert=+e.target.value;$("fertV").textContent=P.fert;};
 $("fertburst").onclick=()=>{ S.fertBurstUntil=performance.now()+5000; inspector("💧 Fertilizer dumped — accelerated growth for 5s."); };
 
 // ---- EVOLUTION: detune (live twin spread) + drift (slow-modulation depth) ----
-bind("detune",v=>{ P.detune=v; if(!ac)return; const t=ac.currentTime;
-  for(const n of S.nodes.values()){ const vo=n.voice; if(!vo)continue;
-    if(vo.osc)vo.osc.detune.setTargetAtTime(-P.detune/2,t,0.2);
-    if(vo.osc2)vo.osc2.detune.setTargetAtTime(P.detune/2,t,0.2); } });
-bind("drift",v=>{ P.drift=v/100; if(!ac)return; const t=ac.currentTime;
-  if(breathDepth)breathDepth.gain.setTargetAtTime(P.drift*0.10,t,0.3);
-  for(const n of S.nodes.values()){ const vo=n.voice; if(!vo)continue;
-    if(vo.detDepth)vo.detDepth.gain.setTargetAtTime(1.5+P.drift*7,t,0.3);
-    if(vo.filtDepth)vo.filtDepth.gain.setTargetAtTime(vo.bpBase*(0.12+P.drift*0.45),t,0.3); } });
-bind("density",v=>{ S.voiceBudget=v; });
+bind("detune",v=>{ P.detune=v; defer("detune",()=>{
+  for(const vo of activeVoices()){ ramp(vo.oA.detune,-P.detune/2,0.25); ramp(vo.oB.detune,P.detune/2,0.25); } }); });
+bind("drift",v=>{ P.drift=v/100; defer("drift",()=>{
+  if(breathDepth) glide(breathDepth.gain,P.drift*0.10,0.3);
+  for(const vo of activeVoices()){ const dm=timbreDepth(vo.m);
+    glide(vo.dA.gain,dm,0.3); glide(vo.dB.gain,-dm,0.3); } }); });
+bind("density",v=>{ S.voiceBudget=v; defer("alloc",allocate); });
+bind("swell",v=>{ P.swell=v/100; if(P.swell<=0) defer("swell",()=>{ for(const vo of activeVoices()) glide(vo.env.gain,vo.amp,1.5); }); });
+bind("glide",v=>{ P.glide=v/10; }, v=>(v/10).toFixed(1));
+// ---- TAPROOT: bed level / spectral tilt / sympathetic resonance ----
+bind("bed",v=>{ P.bed=v/100; glide(bedBus&&bedBus.gain,bedTarget(),0.15); });
+bind("tilt",v=>{ P.tilt=v/100; defer("tilt",()=>levelBed(0.4)); });
+bind("sympathy",v=>{ P.sympathy=v/100; if(!ac)return;
+  glide(symIn.gain,P.sympathy*0.05,0.15); for(const s of SYM) glide(s.fb.gain,symFb(),0.15); });
 $("tempoSync").onclick=()=>{ P.tempoSync=!P.tempoSync;
   $("tempoSync").classList.toggle("on",P.tempoSync);
   $("tempoSync").textContent="🕒 TEMPO SYNC: "+(P.tempoSync?"ON":"OFF");
   // when on, each voice's pulse rate is derived from the growth cycle (musical polyrhythm)
-  if(ac){ const t=ac.currentTime;
-    for(const n of S.nodes.values()){ const vo=n.voice; if(!vo)continue;
-      const r=P.tempoSync ? (1000/P.cycleMs)*(n.ratioMul||1)
-                          : Math.max(0.05,P.pulse*(n.ratioMul||1));
-      vo.lfo.frequency.setTargetAtTime(Math.max(0.05,r),t,0.3); } }
+  retremAll(0.8);
   inspector(P.tempoSync?"🕒 Tempo sync engaged — voice pulses locked to growth cycle."
                        :"Tempo sync disengaged — pulses return to PULSE Hz.");
 };
 $("freeze").onclick=()=>{
   if(!ac){ inspector("Plant a seed first — nothing to freeze yet."); return; }
-  const on=freezeGain.gain.value<0.05;
-  freezeGain.gain.setTargetAtTime(on?0.7:0, ac.currentTime, 0.6);
-  $("freeze").classList.toggle("on",on);
-  $("freeze").textContent = on ? "❆ RELEASE FREEZE" : "❆ FREEZE CANOPY";
-  inspector(on ? "❆ Canopy frozen — current harmonic state held as a sustained pad. Grow a new tree over the top."
-              : "Freeze released.");
+  freezeOn=!freezeOn;
+  glide(freezeGain.gain,freezeOn?0.7:0,0.6);
+  $("freeze").classList.toggle("on",freezeOn);
+  $("freeze").textContent = freezeOn ? "❆ RELEASE FREEZE" : "❆ FREEZE CANOPY";
+  inspector(freezeOn ? "❆ Canopy frozen — current harmonic state held as a sustained pad. Grow a new tree over the top."
+                     : "Freeze released.");
 };
 $("perpetual").onclick=()=>{ P.perpetual=!P.perpetual;
   $("perpetual").classList.toggle("on",P.perpetual);
@@ -1230,24 +1728,40 @@ $("perpetual").onclick=()=>{ P.perpetual=!P.perpetual;
                        :"Perpetual bloom disengaged.");
 };
 function perpetualBloom(){
-  // gentle self-mutation, then regrow a fresh cycle. Decay tails + reverb/space bridge the seam.
-  const roll=Math.random();
-  if(roll<0.5){ P.theta=Math.max(10,Math.min(90,+(P.theta+(Math.random()*10-5)).toFixed(1)));
+  // gentle self-mutation, then regrow a fresh cycle as a morph: the trunk keeps sounding and
+  // glides, the old canopy fades over the new one, and the bed / resonators carry the seam
+  const roll=Math.random(), oldSpecies=P.species;
+  if(roll<0.5){ P.theta=clamp(+(P.theta+(Math.random()*10-5)).toFixed(1),10,90);
     $("theta").value=P.theta; $("thetaV").textContent=P.theta; }
-  else { P.wind=Math.max(0,Math.min(18,+(P.wind+(Math.random()<.5?-1.5:2)).toFixed(1)));
+  else { P.wind=clamp(+(P.wind+(Math.random()<.5?-1.5:2)).toFixed(1),0,18);
     $("wind").value=P.wind; $("windV").textContent=P.wind; }
-  if(Math.random()<0.4){ const sp=["fern","oak","reed","thorn"]; P.species=sp[Math.floor(Math.random()*sp.length)]; $("species").value=P.species; }
+  if(Math.random()<0.4){ P.species=SPECIES[Math.floor(Math.random()*SPECIES.length)]; $("species").value=P.species; }
+  for(const [pid,n] of S.nodes){
+    if(n.pruned){ removeSeg(n); S.nodes.delete(pid); continue; }
+    if(n.decaying){ n.decaying=false; if(n.el)n.el.setAttribute("stroke",n.el.dataset.baseCol); }
+    n.age=0;
+  }
   S.pruned.clear(); S.decayCount=0; S.targetGen=1; S.clockAcc=0; S.completeAt=0;
-  softRebuild();
+  morph(2.5,2.4);
+  if(P.species!==oldSpecies) respecies();
   inspector("♾ Bloom — the canopy re-seeds (θ "+P.theta+"°, "+P.species+") and a new growth cycle begins.");
 }
-// ---- DEEP TIME EVO: master rate, Seasons (macro drift), Harmony (root progression) ----
+// ---- DEEP TIME EVO: master rate, Seasons (macro drift), Metamorphosis, Harmony (root progression) ----
 bind("evorate",v=>{S.evoRate=v;});
+bind("morphdepth",v=>{P.morphDepth=v;});
+$("metamorph").onclick=()=>{ P.morph=!P.morph;
+  $("metamorph").classList.toggle("on",P.morph);
+  $("metamorph").textContent="🍃 METAMORPHOSIS: "+(P.morph?"ON":"OFF");
+  if(!P.morph){ S.metaTheta=null; S.metaWind=null; requestMorph(Math.max(1.5,P.glide*3)); }
+  else S.morphAcc=700;
+  inspector(P.morph?"🍃 Metamorphosis engaged — θ wanders ±"+P.morphDepth+"° around your setting; every branch re-voices as the tree bends."
+                   :"Metamorphosis disengaged — the tree settles back to θ "+P.theta+"°.");
+};
 $("seasons").onclick=()=>{ S.seasons=!S.seasons;
   $("seasons").classList.toggle("on",S.seasons);
   $("seasons").textContent="❄ SEASONS: "+(S.seasons?"ON":"OFF");
   if(!S.seasons) restoreSeasonParams();
-  inspector(S.seasons?"❄ Seasons engaged — width, space, reverb & level now drift slowly on their own."
+  inspector(S.seasons?"❄ Seasons engaged — width, space, reverb, level & canopy tone now drift slowly on their own."
                      :"Seasons disengaged — mix returns to your fader settings.");
 };
 $("harmony").onclick=()=>{ S.harmony=!S.harmony;
@@ -1259,26 +1773,34 @@ $("harmony").onclick=()=>{ S.harmony=!S.harmony;
   inspector(S.harmony?"♪ Harmony drift engaged — the root will glide through a slow JI progression."
                      :"Harmony drift disengaged — gliding home to the root key.");
 };
+$("prog").onchange=e=>{ P.prog=e.target.value;
+  if(S.progIdx>=progRatios().length) S.progIdx=0;
+  if(S.harmony && S.progIdx>0){ S.progRatio=progRatios()[S.progIdx]; retuneAll(6);
+    $("harmstat").textContent="root: "+progLabel(S.progIdx)+"  ("+effRoot().toFixed(1)+"Hz)"; }
+  inspector("♪ Progression: "+e.target.selectedOptions[0].textContent);
+};
 function restoreSeasonParams(){
-  if(!ac)return; const t=ac.currentTime;
-  if(widthGain)widthGain.setTargetAtTime(P.width,t,0.6);
-  if(spaceSend)spaceSend.gain.setTargetAtTime(P.space,t,0.6);
-  if(wet)wet.gain.setTargetAtTime(P.verb,t,0.6);
-  if(canopyBus)canopyBus.gain.setTargetAtTime(P.canopy,t,0.6);
+  if(!ac)return;
+  glide(widthGain,P.width,0.6);
+  glide(spaceSend.gain,P.space,0.6);
+  glide(wet.gain,P.verb,0.6);
+  glide(canopyBus.gain,P.canopy,0.6);
+  ramp(canopyTone.frequency,TONE_OPEN,2,true);
 }
 function updateSeasons(now){
-  if(!ac)return; const t=ac.currentTime, ts=now/1000, r=S.evoRate/3;
+  if(!ac)return; const ts=now/1000, r=S.evoRate/3;
   // organic drift: sum of two incommensurate slow sines per target, seeded differently
   const d=(a,b)=>Math.sin(ts*0.010*r+a)*0.62+Math.sin(ts*0.023*r+b)*0.38; // ~[-1,1]
-  if(widthGain)widthGain.setTargetAtTime(Math.max(0,P.width+d(0.4,2.1)*0.5),t,0.4);
-  if(spaceSend)spaceSend.gain.setTargetAtTime(Math.max(0,Math.min(0.9,P.space+d(1.3,4.0)*0.22)),t,0.4);
-  if(wet)wet.gain.setTargetAtTime(Math.max(0,Math.min(1,P.verb+d(2.7,0.9)*0.25)),t,0.4);
-  if(canopyBus)canopyBus.gain.setTargetAtTime(Math.max(0.05,P.canopy+d(3.9,1.6)*0.12),t,0.5);
+  glide(widthGain,Math.max(0,P.width+d(0.4,2.1)*0.5),0.4);
+  glide(spaceSend.gain,clamp(P.space+d(1.3,4.0)*0.22,0,0.9),0.4);
+  glide(wet.gain,clamp(P.verb+d(2.7,0.9)*0.25,0,1),0.4);
+  glide(canopyBus.gain,Math.max(0.05,P.canopy+d(3.9,1.6)*0.12),0.5);
+  ramp(canopyTone.frequency,2600*Math.pow(TONE_OPEN/2600,0.5+0.5*d(5.2,3.3)),0.6,true);   // spectral tide
 }
 
-// re-derive geometry live when morphology/rules change (rebuild to keep math coherent)
+// re-derive geometry live when rules change (on commit — half-typed rules aren't musical)
 ["theta","seglen","ldecay","wind","axiom","ruleX","ruleY","ruleF","rulef"].forEach(id=>{
-  $(id).addEventListener("change",()=>{ if(S.planted){ softRebuild(); } });
+  $(id).addEventListener("change",()=>requestMorph());
 });
 
 /* ---------- SEED LIBRARY: populate + apply + mutate + random ---------- */
@@ -1296,10 +1818,13 @@ function applyPreset(p){
   set("ldecay",p.ldecay); P.ldecay=p.ldecay/100;
   set("maxgen",p.maxgen); P.maxgen=p.maxgen;
   set("wind",p.wind); P.wind=p.wind;
+  const oldSpecies=P.species;
   $("species").value=p.species; P.species=p.species;
   $("presetDesc").textContent=p.desc;
   if(S.planted){ S.pruned.clear(); S.grafts=[]; S.graftPick=null;
-    S.targetGen=Math.min(S.targetGen,P.maxgen); softRebuild(); }
+    for(const n of S.nodes.values()){ n.graftMul=1; n.grafted=false; }
+    S.targetGen=Math.min(S.targetGen,P.maxgen); morph(Math.max(P.glide,0.8),1.6);
+    if(P.species!==oldSpecies) respecies(); }
   inspector("🌱 Loaded seed: "+p.name+" — "+p.desc);
 }
 $("randseed").onclick=()=>{
@@ -1308,33 +1833,37 @@ $("randseed").onclick=()=>{
 };
 $("mutate").onclick=()=>{
   // safe mutations only: nudge angle / wind / species / flip a +- pair (never unbalance brackets)
-  const roll=Math.random();
-  if(roll<0.4){ P.theta=Math.max(10,Math.min(90, +(P.theta+(Math.random()*16-8)).toFixed(1)));
+  const roll=Math.random(), oldSpecies=P.species;
+  if(roll<0.4){ P.theta=clamp(+(P.theta+(Math.random()*16-8)).toFixed(1),10,90);
     $("theta").value=P.theta; $("thetaV").textContent=P.theta; }
-  else if(roll<0.7){ P.wind=Math.min(18, +(P.wind+ (Math.random()<.5?-2:3)).toFixed(1)); if(P.wind<0)P.wind=0;
+  else if(roll<0.7){ P.wind=clamp(+(P.wind+(Math.random()<.5?-2:3)).toFixed(1),0,18);
     $("wind").value=P.wind; $("windV").textContent=P.wind; }
-  else { const sp=["fern","oak","reed","thorn"]; P.species=sp[Math.floor(Math.random()*sp.length)];
+  else { P.species=SPECIES[Math.floor(Math.random()*SPECIES.length)];
     $("species").value=P.species; }
   // occasionally flip one +/- in RULE X to alter the branch lean
   if(Math.random()<0.5){ const r=$("ruleX").value.split("");
     const idxs=r.map((c,i)=>((c==='+'||c==='-')?i:-1)).filter(i=>i>=0);
     if(idxs.length){ const k=idxs[Math.floor(Math.random()*idxs.length)]; r[k]=r[k]==='+'?'-':'+'; $("ruleX").value=r.join(""); } }
   $("presetDesc").textContent="⚄ mutated strain — θ "+P.theta+"°, wind ±"+P.wind+"°, "+P.species;
-  if(S.planted) softRebuild();
+  if(S.planted){ requestMorph(Math.max(P.glide,0.8)); if(P.species!==oldSpecies) respecies(); }
   inspector("⚄ Mutation applied. The strain has drifted.");
 };
 /* ---------- SAVE / LOAD STRAIN (full seed + parameter snapshot) ---------- */
 const STRAIN_FIELDS={
   text:["axiom","ruleX","ruleY","ruleF","rulef"],
   slider:["theta","seglen","ldecay","maxgen","wind","cycle","fert",
-          "master","canopy","roots","noise","verb","lo","himid","air","drive","width","space","detune","drift","density","evorate","pulse","rootfreq"],
-  select:["species","preset"]
+          "master","canopy","roots","noise","verb","lo","himid","air","drive","width","space","detune","drift","density","evorate","pulse","rootfreq",
+          "swell","glide","bed","tilt","sympathy","morphdepth"],
+  select:["species","preset","prog"],
+  toggle:{tempoSync:()=>P.tempoSync, perpetual:()=>P.perpetual, seasons:()=>S.seasons,
+          harmony:()=>S.harmony, metamorph:()=>P.morph, freeze:()=>freezeOn},
 };
 $("savestrain").onclick=()=>{
-  const strain={_type:"botanical-strain",_v:1};
+  const strain={_type:"botanical-strain",_v:2};
   STRAIN_FIELDS.text.forEach(id=>strain[id]=$(id).value);
   STRAIN_FIELDS.slider.forEach(id=>strain[id]=$(id).value);
   STRAIN_FIELDS.select.forEach(id=>strain[id]=$(id).value);
+  strain.toggles={}; for(const k in STRAIN_FIELDS.toggle) strain.toggles[k]=STRAIN_FIELDS.toggle[k]();
   strain.desc=$("presetDesc").textContent;
   const blob=new Blob([JSON.stringify(strain,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
@@ -1348,40 +1877,45 @@ $("strainfile").onchange=e=>{
   rd.onload=()=>{ try{
     const strain=JSON.parse(rd.result);
     if(strain._type!=="botanical-strain") throw new Error("not a strain file");
+    const oldSpecies=P.species;
     STRAIN_FIELDS.text.forEach(id=>{ if(strain[id]!==undefined)$(id).value=strain[id]; });
     STRAIN_FIELDS.slider.forEach(id=>{ if(strain[id]!==undefined){ $(id).value=strain[id];
       $(id).dispatchEvent(new Event("input")); } });
     STRAIN_FIELDS.select.forEach(id=>{ if(strain[id]!==undefined)$(id).value=strain[id]; });
     // sync P from the (now-updated) fields for text/select-driven values
-    P.species=$("species").value;
+    P.species=$("species").value; P.prog=$("prog").value;
+    if(strain.toggles) for(const k in STRAIN_FIELDS.toggle){
+      if(k==="freeze" && !ac) continue;
+      if(strain.toggles[k]!==undefined && !!strain.toggles[k]!==STRAIN_FIELDS.toggle[k]()) $(k).click(); }
     if(S.planted){ S.pruned.clear(); S.grafts=[]; S.graftPick=null;
-      S.targetGen=Math.min(S.targetGen,P.maxgen); softRebuild(); }
+      for(const n of S.nodes.values()){ n.graftMul=1; n.grafted=false; }
+      S.targetGen=Math.min(S.targetGen,P.maxgen); requestMorph(Math.max(P.glide,0.8));
+      if(P.species!==oldSpecies) respecies(); }
     $("presetDesc").textContent=strain.desc||"loaded strain";
     inspector("📂 Strain loaded — "+(strain.desc||file.name));
   }catch(err){ inspector("⚠ Could not load strain: "+err.message); } };
   rd.readAsText(file);
   e.target.value=""; // allow re-loading same file
 };
-function softRebuild(){
-  // keep pruned set & grafts; wipe visual+voices, regrow to current targetGen
-  S.lineage=null; S.selected=null; clearSolo(); $("nodecard").style.display="none";
-  S.maxDepth=0; S.agingList=null; S.completeAt=0;
-  for(const n of S.nodes.values()){ if(n.voice)stopVoice(n,true); }
-  S.nodes.clear();
-  [...svg.querySelectorAll("line,circle,path")].forEach(e=>e.remove());
-  render();
-}
 
 // transport
 $("plant").onclick=()=>{
-  buildAudio(); if(ac.state==="suspended")ac.resume();
+  buildAudio(); if(ac.state!=="running")ac.resume();
   if(!S.planted){
     S.planted=true; S.running=true; S.targetGen=0; S.gen=0; S.clockAcc=0;
-    render(); // gen 0 seed
+    glide(bedBus.gain,bedTarget(),1.5);
+    morph(); // gen 0 seed
     if(S.targetGen<P.maxgen) grow(); // pop the first split immediately
     inspector("🌱 Seed planted. The L-system awakens; branches spawn JI-tuned drone voices.");
     $("playpause").classList.add("on"); $("playpause").textContent="❚❚ PAUSE";
-  } else { softRebuild(); }
+  } else {
+    // re-plant: every branch re-attacks while its previous voice fades underneath (crossfade, no gap)
+    clearSelection(); clearSolo(); $("nodecard").style.display="none";
+    for(const n of S.nodes.values()){ if(n.voice) releaseVoice(n.voice,1.5); removeSeg(n); }
+    S.nodes.clear(); S.startQ=[]; S.swapQ=[];
+    morph();
+    inspector("🌱 Re-planted — the canopy re-attacks over its own fading tail.");
+  }
   updateStatus();
 };
 $("playpause").onclick=()=>{
@@ -1389,21 +1923,25 @@ $("playpause").onclick=()=>{
   S.running=!S.running;
   $("playpause").classList.toggle("on",S.running);
   $("playpause").textContent=S.running?"❚❚ PAUSE":"▶ RESUME";
-  if(ac){ if(S.running)ac.resume(); }
+  if(ac && S.running && ac.state!=="running") ac.resume();
 };
 $("reset").onclick=()=>{
   clearSelection(); clearSolo(); $("nodecard").style.display="none";
-  for(const n of S.nodes.values()){ if(n.voice)stopVoice(n,true); }
-  S.nodes.clear(); S.pruned.clear(); S.grafts=[]; S.graftPick=null;
+  if(ac) for(const n of S.nodes.values()){ if(n.voice)releaseVoice(n.voice,0.12); }
+  for(const n of S.nodes.values()) removeSeg(n);
+  S.nodes.clear(); S.kids.clear(); S.pruned.clear(); S.grafts=[]; S.graftPick=null; S.startQ=[]; S.swapQ=[];
   S.gen=0;S.targetGen=0;S.decayCount=0;S.clockAcc=0;S.planted=false;S.running=false;S.completeAt=0;
-  S.progRatio=1;S.progIdx=0;S.progAcc=0; S.maxDepth=0; S.agingList=null; $("harmstat").textContent="root: home key (I)";
-  [...svg.querySelectorAll("line,circle,path")].forEach(e=>e.remove());
+  S.progRatio=1;S.progIdx=0;S.progAcc=0; S.maxDepth=0; S.agingList=null; S.metaTheta=null; S.metaWind=null;
+  S.morphPending=null; $("harmstat").textContent="root: home key (I)";
+  document.querySelectorAll(".graftln").forEach(e=>e.remove());
   svg.setAttribute("viewBox","0 0 800 520");
   $("playpause").classList.remove("on");$("playpause").textContent="▶ RESUME";
-  if(subGain)subGain.gain.setTargetAtTime(0,ac.currentTime,0.3);
-  if(noiseGain)noiseGain.gain.setTargetAtTime(0,ac.currentTime,0.3);
-  if(freezeGain){ freezeGain.gain.setTargetAtTime(0,ac.currentTime,0.3);
-    $("freeze").classList.remove("on"); $("freeze").textContent="❆ FREEZE CANOPY"; }
+  if(ac){
+    retuneAll(0.3); updateUnder();
+    glide(bedBus.gain,0,0.4);
+    if(freezeOn){ freezeOn=false; glide(freezeGain.gain,0,0.3);
+      $("freeze").classList.remove("on"); $("freeze").textContent="❆ FREEZE CANOPY"; }
+  }
   inspector("Soil reset. Ready for a new seed.");
   updateStatus();
 };
@@ -1413,10 +1951,13 @@ stage.addEventListener("click",e=>{
   if(S.graftPick){ if(S.graftPick.el)S.graftPick.el.setAttribute("stroke",S.graftPick.el.dataset.baseCol); S.graftPick=null; inspector("Graft cancelled."); return; }
   if(S.selected){ clearSelection(); $("nodecard").style.display="none"; }
 });
+// browsers may suspend audio (autoplay policy, device change, OS interruption): any gesture revives it
+document.addEventListener("pointerdown",()=>{ if(ac && S.planted && ac.state!=="running") ac.resume(); },{passive:true});
 
 // keyboard shortcuts (ignored while typing in a field)
 function pickTool(name){ const el=[...document.querySelectorAll(".tool")].find(t=>t.dataset.tool===name); if(el)el.click(); }
 document.addEventListener("keydown",e=>{
+  if(ac && S.planted && ac.state!=="running") ac.resume();
   const tag=(e.target.tagName||"").toLowerCase();
   if(tag==="input"||tag==="textarea"||tag==="select")return;
   switch(e.key){
@@ -1427,6 +1968,7 @@ document.addEventListener("keydown",e=>{
     case " ": e.preventDefault(); $("playpause").click(); break;
     case "m": case "M": $("mutate").click(); break;
     case "f": case "F": $("fertburst").click(); break;
+    case "e": case "E": $("metamorph").click(); break;
     case "Escape": clearSelection(); clearSolo(); $("nodecard").style.display="none"; break;
   }
 });
@@ -1434,12 +1976,12 @@ document.addEventListener("keydown",e=>{
 // menu bar cosmetics
 document.querySelectorAll(".menu span").forEach(m=>m.onclick=()=>{
   const t=m.textContent;
-  const info={File:"File ▸ use SAVE .SVG / REC .WAV in the Export panel.",
-    Cultivate:"Cultivate ▸ PLANT SEED then let the Deep-Time clock split branches.",
+  const info={File:"File ▸ use SAVE .SVG / REC .WAV in the Export panel; SAVE STRAIN keeps every setting.",
+    Cultivate:"Cultivate ▸ PLANT SEED then let the Deep-Time clock split branches. Drag any control — the drone morphs, never stops.",
     Graft:"Graft ▸ pick the GRAFT tool, click a source limb then a target limb.",
-    Tuning:"Tuning ▸ branch angle θ maps to Just-Intonation ratios (see table).",
+    Tuning:"Tuning ▸ branch angle θ maps to Just-Intonation ratios (see table). Retunes glide by the nearest octave.",
     MIDI:"MIDI ▸ click ENABLE MIDI to stream notes to external hardware.",
-    Help:"Botanical Sequencer: grow fractal trees; every branch is a drone voice."};
+    Help:"Botanical Sequencer: grow fractal trees; every branch is a drone voice over an always-on taproot bed. [E] metamorphosis."};
   inspector(info[t]||t);
 });
 
