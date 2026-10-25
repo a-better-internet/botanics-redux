@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVG BOTANICAL SEQUENCER v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --chrome:#c3c7cb; --chrome-lo:#868a8e; --chrome-hi:#ffffff; --chrome-mid:#9a9ea2;
+    --face:#d4d0c8; --ink:#101010; --canvas:#0a0d0a; --grid:#12351f;
+    --leaf:#57f08a; --branch:#8fe6b0; --root:#3a6f4f; --sel:#ffe14d; --graft:#ff6ad5;
+    --title:#00006b; --title2:#3a3a9c; --titletext:#f4f4ff; --warn:#a80000;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:#008080;
+    background-image:radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px);
+    background-size:3px 3px;
+    font-family:"Silkscreen",monospace;color:var(--ink);overflow:hidden;}
+  /* ---- 90s window chrome helpers ---- */
+  .bevel-out{border:2px solid;border-color:var(--chrome-hi) var(--chrome-lo) var(--chrome-lo) var(--chrome-hi);
+    box-shadow:inset 1px 1px 0 #eef0f2, inset -1px -1px 0 var(--chrome-mid);}
+  .bevel-in{border:2px solid;border-color:var(--chrome-lo) var(--chrome-hi) var(--chrome-hi) var(--chrome-lo);
+    box-shadow:inset 1px 1px 0 var(--chrome-mid), inset -1px -1px 0 #eef0f2;}
+  #app{position:absolute;inset:10px;display:flex;flex-direction:column;background:var(--chrome);}
+  #app{border:3px solid;border-color:var(--chrome-hi) #4a4e52 #4a4e52 var(--chrome-hi);}
+  /* title bar */
+  .titlebar{height:26px;display:flex;align-items:center;gap:6px;padding:2px 4px;
+    background:linear-gradient(90deg,var(--title),var(--title2));color:var(--titletext);
+    font-size:13px;letter-spacing:.5px;flex:0 0 auto;}
+  .titlebar .seed{width:16px;height:16px;image-rendering:pixelated;}
+  .titlebar .sp{flex:1;}
+  .tbtn{width:18px;height:16px;background:var(--face);color:#000;font-family:monospace;font-size:11px;
+    display:flex;align-items:center;justify-content:center;cursor:default;}
+  /* menu strip */
+  .menu{display:flex;gap:2px;padding:2px 4px;background:var(--chrome);font-size:11px;flex:0 0 auto;
+    border-bottom:1px solid var(--chrome-lo);}
+  .menu span{padding:2px 7px;}
+  .menu span:hover{background:var(--title);color:#fff;}
+  /* main layout */
+  #main{flex:1;display:flex;min-height:0;padding:6px;gap:6px;}
+  #left{flex:0 0 168px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;padding-right:2px;}
+  #center{flex:1;display:flex;flex-direction:column;min-width:0;gap:6px;}
+  #right{flex:0 0 190px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;padding-right:2px;}
+  #left::-webkit-scrollbar,#right::-webkit-scrollbar{width:14px;}
+  #left::-webkit-scrollbar-thumb,#right::-webkit-scrollbar-thumb{background:var(--face);border:2px solid;border-color:var(--chrome-hi) var(--chrome-lo) var(--chrome-lo) var(--chrome-hi);}
+  #left::-webkit-scrollbar-track,#right::-webkit-scrollbar-track{background:var(--chrome-mid);}
+  /* group boxes */
+  .panel{background:var(--chrome);padding:5px;}
+  .panel .cap{font-size:9px;letter-spacing:.5px;color:#000;background:var(--chrome);
+    display:inline-block;transform:translateY(-11px) translateX(4px);padding:0 4px;margin-bottom:-8px;position:relative;}
+  .group{border:1px solid var(--chrome-lo);box-shadow:inset -1px -1px 0 var(--chrome-hi);
+    padding:12px 7px 8px;margin-top:8px;position:relative;}
+  .group>.legend{position:absolute;top:-7px;left:6px;background:var(--chrome);padding:0 4px;font-size:8px;letter-spacing:.5px;}
+  /* controls */
+  label.row{display:flex;align-items:center;justify-content:space-between;font-size:8px;margin:5px 0;gap:4px;line-height:1.3;}
+  label.row .val{font-family:"VT323",monospace;font-size:15px;color:#003a00;min-width:34px;text-align:right;}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:16px;background:var(--chrome-mid);
+    border:2px solid;border-color:var(--chrome-lo) var(--chrome-hi) var(--chrome-hi) var(--chrome-lo);width:82px;flex:0 0 82px;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:20px;background:var(--face);
+    border:2px solid;border-color:var(--chrome-hi) var(--chrome-lo) var(--chrome-lo) var(--chrome-hi);cursor:pointer;}
+  input[type=range]::-moz-range-thumb{width:10px;height:18px;background:var(--face);border:2px solid #4a4e52;cursor:pointer;border-radius:0;}
+  input[type=text]{font-family:"VT323",monospace;font-size:16px;background:#eef7ee;color:#003a00;
+    border:2px solid;border-color:var(--chrome-lo) var(--chrome-hi) var(--chrome-hi) var(--chrome-lo);
+    padding:1px 4px;width:100%;}
+  select{font-family:"VT323",monospace;font-size:15px;background:#eef7ee;border:2px solid;
+    border-color:var(--chrome-lo) var(--chrome-hi) var(--chrome-hi) var(--chrome-lo);padding:1px;width:100%;}
+  button.b{font-family:"Silkscreen",monospace;font-size:9px;background:var(--face);padding:5px 6px;cursor:pointer;
+    border:2px solid;border-color:var(--chrome-hi) var(--chrome-lo) var(--chrome-lo) var(--chrome-hi);
+    box-shadow:inset 1px 1px 0 #eef0f2, inset -1px -1px 0 var(--chrome-mid);color:#000;}
+  button.b:active,button.b.on{border-color:var(--chrome-lo) var(--chrome-hi) var(--chrome-hi) var(--chrome-lo);
+    box-shadow:inset 1px 1px 0 var(--chrome-mid);background:#c9c5bd;}
+  button.b.on{background:#b9dcc4;}
+  button.b:disabled{color:#888;text-shadow:1px 1px #fff;cursor:default;}
+  .btnrow{display:flex;gap:4px;flex-wrap:wrap;}
+  /* toolbar (botanist toolkit) */
+  #toolbar{display:flex;gap:4px;align-items:center;padding:4px;background:var(--chrome);flex:0 0 auto;flex-wrap:wrap;}
+  .tool{width:40px;height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    background:var(--face);cursor:pointer;border:2px solid;border-color:var(--chrome-hi) var(--chrome-lo) var(--chrome-lo) var(--chrome-hi);
+    box-shadow:inset 1px 1px 0 #eef0f2, inset -1px -1px 0 var(--chrome-mid);}
+  .tool svg{image-rendering:pixelated;}
+  .tool .tl{font-size:6px;letter-spacing:0;}
+  .tool.on{border-color:var(--chrome-lo) var(--chrome-hi) var(--chrome-hi) var(--chrome-lo);
+    box-shadow:inset 1px 1px 0 var(--chrome-mid);background:#b9dcc4;}
+  .toolsep{width:2px;height:34px;background:var(--chrome-lo);box-shadow:1px 0 0 var(--chrome-hi);margin:0 2px;}
+  /* canvas */
+  #stage{flex:1;position:relative;min-height:0;background:var(--canvas);overflow:hidden;}
+  #stage.pruneC{cursor:crosshair;}
+  #svg{width:100%;height:100%;display:block;background:
+     linear-gradient(180deg,#0a0d0a 0%,#0a1410 60%,#081a0f 100%);}
+  #svg line.seg{stroke-linecap:round;transition:stroke .2s;}
+  #svg line.seg:hover{stroke:var(--sel)!important;}
+  .leafdot{}
+  #hud{position:absolute;top:6px;left:6px;font-family:"VT323",monospace;font-size:15px;color:#6fffa8;
+    text-shadow:0 0 4px #0f0;pointer-events:none;line-height:1.15;}
+  #hud b{color:#eaffea;}
+  #inspector{position:absolute;bottom:6px;left:6px;right:6px;font-family:"VT323",monospace;font-size:15px;
+    color:#bff7cf;background:rgba(4,20,10,.7);border:1px solid #1f6b40;padding:2px 6px;pointer-events:none;min-height:20px;}
+  #nodecard{position:absolute;top:6px;right:6px;width:196px;font-family:"VT323",monospace;font-size:15px;
+    color:#dfffe9;background:rgba(6,24,13,.92);border:2px solid #2f8f56;padding:6px 8px;pointer-events:none;
+    display:none;line-height:1.35;box-shadow:0 3px 14px rgba(0,0,0,.5);}
+  #nodecard .nh{font-family:"Silkscreen";font-size:8px;color:#8affb8;letter-spacing:.5px;
+    border-bottom:1px solid #2f8f56;padding-bottom:3px;margin-bottom:4px;display:flex;justify-content:space-between;}
+  #nodecard .kv{display:flex;justify-content:space-between;gap:8px;}
+  #nodecard .kv span:first-child{color:#7fd6a0;}
+  #nodecard .big{font-size:22px;color:#8fffb0;text-align:center;margin:2px 0;text-shadow:0 0 6px rgba(80,255,140,.4);}
+  /* status bar */
+  #status{flex:0 0 auto;display:flex;gap:6px;padding:3px 4px;font-family:"VT323",monospace;font-size:15px;}
+  .stat{padding:1px 6px;background:var(--chrome);}
+  .led{width:9px;height:9px;border-radius:50%;background:#500;display:inline-block;margin-right:4px;vertical-align:middle;
+    box-shadow:inset 1px 1px 0 rgba(255,255,255,.4);}
+  .led.on{background:#28e05a;box-shadow:0 0 6px #28e05a,inset 1px 1px 0 rgba(255,255,255,.5);}
+  .grow{flex:1;}
+  /* mapping table */
+  table.jt{width:100%;border-collapse:collapse;font-family:"VT323",monospace;font-size:14px;}
+  table.jt td,table.jt th{border:1px solid var(--chrome-lo);padding:1px 3px;text-align:left;}
+  table.jt th{font-family:"Silkscreen";font-size:7px;background:var(--chrome-mid);}
+  .tiny{font-size:7px;line-height:1.4;color:#333;}
+  .modehint{font-family:"VT323";font-size:14px;color:#004a00;background:#e6f2e6;border:1px solid var(--chrome-lo);padding:1px 4px;}
+  a.dl{color:var(--title);}
+</style>
+</head>
+<body>
+<div id="app" class="bevel-out">
+  <!-- ===== TITLE BAR ===== -->
+  <div class="titlebar">
+    <svg class="seed" viewBox="0 0 8 8" shape-rendering="crispEdges">
+      <rect width="8" height="8" fill="#0b5"/><rect x="3" y="1" width="2" height="6" fill="#fff"/>
+      <rect x="1" y="3" width="6" height="2" fill="#fff"/></svg>
+    <span>SVG BOTANICAL SEQUENCER — [ untitled.grow ]</span>
+    <span class="sp"></span>
+    <div class="tbtn bevel-out">_</div><div class="tbtn bevel-out">▢</div><div class="tbtn bevel-out">×</div>
+  </div>
+  <!-- ===== MENU ===== -->
+  <div class="menu">
+    <span>File</span><span>Cultivate</span><span>Graft</span><span>Tuning</span><span>MIDI</span><span>Help</span>
+  </div>
+
+  <div id="main">
+    <!-- ============ LEFT: GROWTH ENGINE ============ -->
+    <div id="left">
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ SEED LIBRARY ►</span>
+          <select id="preset"></select>
+          <div class="tiny" id="presetDesc" style="margin-top:5px;min-height:26px">Conifer — sparse, meditative 7:6 drone stack.</div>
+          <div class="btnrow" style="margin-top:4px">
+            <button class="b" id="mutate" style="flex:1" title="perturb angle & rules">⚄ MUTATE</button>
+            <button class="b" id="randseed" style="flex:1" title="load a random seed">? RANDOM</button>
+          </div>
+          <div class="btnrow" style="margin-top:4px">
+            <button class="b" id="savestrain" style="flex:1" title="download current strain as .json">💾 SAVE STRAIN</button>
+            <button class="b" id="loadstrain" style="flex:1" title="load a .strain.json">📂 LOAD</button>
+          </div>
+          <input type="file" id="strainfile" accept=".json,application/json" style="display:none">
+        </div>
+      </div>
+
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ AXIOM / RULES ►</span>
+          <label class="row"><span>AXIOM</span></label>
+          <input id="axiom" type="text" value="X" spellcheck="false">
+          <label class="row" style="margin-top:6px"><span>RULE X→</span></label>
+          <input id="ruleX" type="text" value="F[+X]F[-X]+X" spellcheck="false">
+          <label class="row" style="margin-top:6px"><span>RULE Y→</span></label>
+          <input id="ruleY" type="text" value="" spellcheck="false" placeholder="(unused)">
+          <label class="row" style="margin-top:6px"><span>RULE F→</span></label>
+          <input id="ruleF" type="text" value="FF" spellcheck="false">
+          <label class="row" style="margin-top:6px"><span>RULE f→</span></label>
+          <input id="rulef" type="text" value="" spellcheck="false" placeholder="(unused)">
+          <div class="tiny" style="margin-top:5px">[ ]=branch · +/-=turn ±θ · F/G=voice · f=silent move · X Y=grow-only</div>
+        </div>
+      </div>
+
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ MORPHOLOGY ►</span>
+          <label class="row"><span>ANGLE θ°</span><input id="theta" type="range" min="10" max="90" step="0.5" value="27"><span class="val" id="thetaV">27</span></label>
+          <label class="row"><span>SEG LEN</span><input id="seglen" type="range" min="14" max="70" value="34"><span class="val" id="seglenV">34</span></label>
+          <label class="row"><span>DECAY %</span><input id="ldecay" type="range" min="55" max="100" value="78"><span class="val" id="ldecayV">78</span></label>
+          <label class="row"><span>MAX GEN</span><input id="maxgen" type="range" min="2" max="9" value="6"><span class="val" id="maxgenV">6</span></label>
+          <label class="row"><span>WIND ±°</span><input id="wind" type="range" min="0" max="18" step="0.5" value="0"><span class="val" id="windV">0</span></label>
+          <label class="row"><span>SPECIES</span></label>
+          <select id="species">
+            <option value="fern">FERN (fm carrier)</option>
+            <option value="oak">OAK (saw / thick)</option>
+            <option value="reed">REED (sine / pure)</option>
+            <option value="thorn">THORN (square / harsh)</option>
+            <option value="bell">BELL (fm sine / metallic)</option>
+            <option value="bow">BOW (bowed string)</option>
+            <option value="glass">GLASS (crystalline resonance)</option>
+            <option value="breath">BREATH (airy hush)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ DEEP TIME ►</span>
+          <label class="row"><span>CYCLE</span><input id="cycle" type="range" min="0" max="6" step="1" value="2"><span class="val" id="cycleV">2s</span></label>
+          <div class="tiny" id="cyclelbl">one branch-split every 2 seconds</div>
+          <label class="row" style="margin-top:6px"><span>FERTILIZER ×</span><input id="fert" type="range" min="1" max="16" value="1"><span class="val" id="fertV">1</span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CENTER: CANVAS ============ -->
+    <div id="center">
+      <div id="toolbar" class="bevel-in">
+        <div class="tool on" data-tool="grow" title="Plant / Grow">
+          <svg width="18" height="18" viewBox="0 0 9 9" shape-rendering="crispEdges"><rect width="9" height="9" fill="#0000"/>
+            <rect x="4" y="1" width="1" height="7" fill="#4b2"/><rect x="2" y="3" width="2" height="1" fill="#0b5"/>
+            <rect x="5" y="4" width="2" height="1" fill="#0b5"/><rect x="1" y="3" width="1" height="1" fill="#0b5"/>
+            <rect x="7" y="4" width="1" height="1" fill="#0b5"/></svg><span class="tl">GROW</span></div>
+        <div class="tool" data-tool="prune" title="Pruning Shears — snip a branch (mute)">
+          <svg width="18" height="18" viewBox="0 0 9 9" shape-rendering="crispEdges">
+            <rect x="1" y="1" width="2" height="2" fill="#c33"/><rect x="6" y="1" width="2" height="2" fill="#c33"/>
+            <rect x="3" y="3" width="1" height="1" fill="#999"/><rect x="5" y="3" width="1" height="1" fill="#999"/>
+            <rect x="4" y="4" width="1" height="4" fill="#bbb"/></svg><span class="tl">PRUNE</span></div>
+        <div class="tool" data-tool="graft" title="Grafting Tape — link two branches">
+          <svg width="18" height="18" viewBox="0 0 9 9" shape-rendering="crispEdges">
+            <rect x="1" y="4" width="3" height="1" fill="#0b5"/><rect x="5" y="4" width="3" height="1" fill="#8fe6b0"/>
+            <rect x="3" y="2" width="3" height="5" fill="#ff6ad5" opacity=".7"/></svg><span class="tl">GRAFT</span></div>
+        <div class="tool" data-tool="inspect" title="Inspect node">
+          <svg width="18" height="18" viewBox="0 0 9 9" shape-rendering="crispEdges">
+            <rect x="2" y="1" width="3" height="1" fill="#33f"/><rect x="1" y="2" width="1" height="3" fill="#33f"/>
+            <rect x="5" y="2" width="1" height="3" fill="#33f"/><rect x="2" y="5" width="3" height="1" fill="#33f"/>
+            <rect x="5" y="5" width="1" height="1" fill="#333"/><rect x="6" y="6" width="2" height="2" fill="#333"/></svg><span class="tl">LOOK</span></div>
+        <div class="toolsep"></div>
+        <button class="b" id="plant">◄ PLANT SEED</button>
+        <button class="b on" id="playpause">❚❚ PAUSE</button>
+        <button class="b" id="reset">RESET SOIL</button>
+        <div class="toolsep"></div>
+        <button class="b" id="fertburst" title="dump fertilizer">💧 GROW ×4 (5s)</button>
+        <span class="modehint" id="modehint">MODE: GROW — press PLANT SEED</span>
+      </div>
+
+      <div id="stage" class="bevel-in">
+        <svg id="svg" preserveAspectRatio="xMidYMid meet"></svg>
+        <div id="hud"></div>
+        <div id="nodecard"></div>
+        <div id="inspector">READY. Plant a seed to begin cultivation.</div>
+      </div>
+    </div>
+
+    <!-- ============ RIGHT: SOUND / TUNING / IO ============ -->
+    <div id="right">
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ RHIZOME MIX ►</span>
+          <label class="row"><span>MASTER</span><input id="master" type="range" min="0" max="100" value="62"><span class="val" id="masterV">62</span></label>
+          <label class="row"><span>CANOPY</span><input id="canopy" type="range" min="0" max="100" value="70"><span class="val" id="canopyV">70</span></label>
+          <label class="row"><span>ROOTS/SUB</span><input id="roots" type="range" min="0" max="100" value="55"><span class="val" id="rootsV">55</span></label>
+          <label class="row"><span>NOISE FLR</span><input id="noise" type="range" min="0" max="100" value="30"><span class="val" id="noiseV">30</span></label>
+          <label class="row"><span>REVERB</span><input id="verb" type="range" min="0" max="100" value="45"><span class="val" id="verbV">45</span></label>
+          <label class="row"><span>LOW dB</span><input id="lo" type="range" min="-12" max="12" step="0.5" value="0"><span class="val" id="loV">0</span></label>
+          <label class="row"><span>MID dB</span><input id="himid" type="range" min="-12" max="12" step="0.5" value="0"><span class="val" id="himidV">0</span></label>
+          <label class="row"><span>AIR dB</span><input id="air" type="range" min="0" max="12" step="0.5" value="4"><span class="val" id="airV">4</span></label>
+          <label class="row"><span>DRIVE</span><input id="drive" type="range" min="0" max="80" value="0"><span class="val" id="driveV">0</span></label>
+          <label class="row"><span>WIDTH</span><input id="width" type="range" min="0" max="200" value="135"><span class="val" id="widthV">135</span></label>
+          <label class="row"><span>SPACE</span><input id="space" type="range" min="0" max="80" value="28"><span class="val" id="spaceV">28</span></label>
+          <label class="row"><span>PULSE Hz</span><input id="pulse" type="range" min="1" max="60" value="12"><span class="val" id="pulseV">1.2</span></label>
+        </div>
+      </div>
+
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ EVOLUTION ►</span>
+          <label class="row"><span>DETUNE ¢</span><input id="detune" type="range" min="0" max="40" value="10"><span class="val" id="detuneV">10</span></label>
+          <label class="row"><span>DRIFT</span><input id="drift" type="range" min="0" max="100" value="40"><span class="val" id="driftV">40</span></label>
+          <label class="row"><span>DENSITY</span><input id="density" type="range" min="12" max="88" step="4" value="44"><span class="val" id="densityV">44</span></label>
+          <div class="tiny" style="margin-top:3px">twin-osc chorus · slow filter &amp; detune sweep · canopy breath · voice budget</div>
+          <button class="b" id="tempoSync" style="width:100%;margin-top:6px" title="lock voice pulse to cycle time for polyrhythms">🕒 TEMPO SYNC: OFF</button>
+          <button class="b" id="freeze" style="width:100%;margin-top:4px" title="freeze current canopy into a sustained pad">❆ FREEZE CANOPY</button>
+          <button class="b" id="perpetual" style="width:100%;margin-top:6px" title="hands-off generative regrowth">♾ PERPETUAL: OFF</button>
+          <div class="tiny" id="perpstat" style="margin-top:4px">a completed canopy decays, then re-seeds &amp; regrows</div>
+        </div>
+      </div>
+
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ DEEP TIME EVO ►</span>
+          <label class="row"><span>EVO RATE</span><input id="evorate" type="range" min="1" max="12" value="3"><span class="val" id="evorateV">3</span></label>
+          <button class="b" id="seasons" style="width:100%;margin-top:4px" title="slow drift of width/space/reverb/level">❄ SEASONS: OFF</button>
+          <button class="b" id="harmony" style="width:100%;margin-top:4px" title="slow root progression through JI keys">♪ HARMONY DRIFT: OFF</button>
+          <div class="tiny" id="harmstat" style="margin-top:4px">root: home key (I)</div>
+        </div>
+      </div>
+
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ JUST INTONATION ►</span>
+          <label class="row"><span>ROOT Hz</span><input id="rootfreq" type="range" min="27" max="220" value="55"><span class="val" id="rootfreqV">55</span></label>
+          <table class="jt"><tr><th>θ→</th><th>INTERVAL</th><th>RATIO</th></tr>
+            <tr><td>0</td><td>Unison</td><td>1:1</td></tr>
+            <tr><td>~45</td><td>Maj 3rd</td><td>5:4</td></tr>
+            <tr><td>~90</td><td>P 5th</td><td>3:2</td></tr>
+            <tr><td>~33</td><td>Sep m3</td><td>7:6</td></tr>
+          </table>
+          <div class="tiny" style="margin-top:4px">left branch ×ratio · right ÷ratio · octave-folded to audible band</div>
+          <div class="tiny" style="margin-top:5px;color:#003a00">SOUNDING:</div>
+          <div id="sounding" style="font-family:'VT323';font-size:14px;color:#005a1a;min-height:32px;line-height:1.25">—</div>
+        </div>
+      </div>
+
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ WEB MIDI OUT ►</span>
+          <button class="b" id="midiinit" style="width:100%">◄ ENABLE MIDI</button>
+          <select id="midiout" style="margin-top:5px"><option>— no device —</option></select>
+          <div class="tiny" id="midistat" style="margin-top:4px">status: idle</div>
+        </div>
+      </div>
+
+      <div class="panel bevel-out">
+        <div class="group"><span class="legend">◄ EXPORT ARTIFACT ►</span>
+          <div class="btnrow">
+            <button class="b" id="recwav" style="flex:1">● REC .WAV</button>
+            <button class="b" id="svgexp" style="flex:1">▤ SAVE .SVG</button>
+          </div>
+          <div class="tiny" id="recstat" style="margin-top:5px">recorder: stopped</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STATUS BAR ===== -->
+  <div id="status">
+    <span class="stat" style="min-width:98px"><span class="led" id="ledaudio"></span>AUDIO</span>
+    <span class="stat">GEN <b id="sGen">0</b></span>
+    <span class="stat">NODES <b id="sNodes">0</b></span>
+    <span class="stat">VOICES <b id="sVoices">0</b></span>
+    <span class="stat">DECAY <b id="sDecay">0</b></span>
+    <span class="stat grow" id="sClock">GROWTH CLOCK: idle</span>
+    <span class="stat"><span class="led" id="ledmidi"></span>MIDI</span>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   SVG BOTANICAL SEQUENCER  —  L-system growth → JI drone engine
+   Single-file instrument. No external deps besides the fonts.
+   ============================================================ */
+const $=id=>document.getElementById(id);
+const svg=$("svg"), stage=$("stage");
+const SVGNS="http://www.w3.org/2000/svg";
+
+/* ---------- global state ---------- */
+const S={
+  running:false, planted:false, tool:"grow",
+  gen:0, targetGen:0, nodes:new Map(),      // pathId -> node
+  pruned:new Set(),                         // pruned pathIds (persist across re-derivation)
+  grafts:[],                                // {from,to,el}
+  graftPick:null,
+  clockAcc:0, lastT:performance.now(),
+  fertBurstUntil:0,
+  voiceBudget:44, voicesActive:0, decayCount:0,
+  completeAt:0, maxDepth:0, agingList:null,
+  // deep-time evolution
+  seasons:false, harmony:false, evoRate:3,
+  progRatio:1, progIdx:0, progAcc:0,
+};
+const P={ // params
+  theta:27, seglen:34, ldecay:0.78, maxgen:6, species:"fern", wind:0,
+  cycleMs:2000, fert:1, rootfreq:55, pulse:1.2,
+  master:0.62, canopy:0.70, roots:0.55, noise:0.30, verb:0.45,
+  width:1.35, space:0.28, detune:10, drift:0.4, perpetual:false, air:4,
+  lo:0, himid:0, drive:0, density:44, tempoSync:false,
+};
+const PERPETUAL_HOLD=45000; // ms a completed canopy holds before perpetual re-seed
+// slow JI progression the root walks through when Harmony Drift is on (ratios vs base root)
+const PROGRESSION=[1, 4/3, 3/2, 9/8, 5/4, 3/2, 4/3, 1];
+const PROG_LABEL=["I · 1:1","IV · 4:3","V · 3:2","II · 9:8","III · 5:4","V · 3:2","IV · 4:3","I · 1:1"];
+
+/* deterministic 0..1 hash from a string (stable jitter across re-derivation) */
+function hash01(str){ let h=2166136261;
+  for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); }
+  return ((h>>>0)%100000)/100000; }
+
+/* ============================================================
+   SEED LIBRARY — curated L-systems. Each populates axiom+rules+morphology.
+   symbols: F/G draw+voice · f silent move · X Y grow-only · +/- turn · [ ] branch
+   ============================================================ */
+const PRESETS=[
+ {name:"Conifer (default)", axiom:"X", X:"F[+X]F[-X]+X", Y:"", F:"FF", f:"",
+  theta:27, seglen:34, ldecay:78, maxgen:6, wind:0, species:"fern",
+  desc:"Sparse, meditative 7:6 septimal drone stack. The house sound."},
+ {name:"Fractal Plant", axiom:"X", X:"F+[[X]-X]-F[-FX]+X", Y:"", F:"FF", f:"",
+  theta:25, seglen:26, ldecay:82, maxgen:6, wind:2, species:"fern",
+  desc:"Classic bushy Lindenmayer plant — dense, leaning, organic canopy."},
+ {name:"Weeping Willow", axiom:"X", X:"F[+X][-X][X]", Y:"", F:"FF", f:"",
+  theta:16, seglen:40, ldecay:80, maxgen:6, wind:3, species:"reed",
+  desc:"Low branch angle → drooping, narrow 9:8 clusters. Gentle phasing."},
+ {name:"Seaweed Bush", axiom:"F", X:"", Y:"", F:"FF-[-F+F+F]+[+F-F-F]", f:"",
+  theta:22.5, seglen:22, ldecay:88, maxgen:4, wind:1, species:"oak",
+  desc:"Symmetric dense bush. 8:7 intervals, thick woody sawtooth voices."},
+ {name:"Sierpinski Reed", axiom:"F", X:"", Y:"", F:"F[+F]F[-F]F", f:"",
+  theta:25.7, seglen:26, ldecay:86, maxgen:5, wind:0, species:"reed",
+  desc:"Self-similar sparse fan. Clean sine harmonics, spacious stereo."},
+ {name:"Koch Thorn", axiom:"F", X:"", Y:"", F:"F+F-F-F+F", f:"",
+  theta:90, seglen:20, ldecay:100, maxgen:4, wind:0, species:"thorn",
+  desc:"Right-angle Koch fractal → stacked perfect 3:2 fifths. Harsh & bright."},
+ {name:"Dragon Curve", axiom:"FX", X:"X+YF+", Y:"-FX-Y", F:"", f:"",
+  theta:90, seglen:16, ldecay:100, maxgen:9, wind:0, species:"thorn",
+  desc:"Space-filling dragon. Climbing/falling fifths, ever-turning single voice."},
+ {name:"Cantor Gaps", axiom:"F", X:"", Y:"", F:"FfF", f:"fff",
+  theta:0, seglen:30, ldecay:96, maxgen:4, wind:0, species:"oak",
+  desc:"Silent-gap ternary rhythm. Uses f=move-without-sound for rests."},
+ {name:"Spiral Vine", axiom:"X", X:"F+[X]", Y:"", F:"F", f:"",
+  theta:20, seglen:30, ldecay:96, maxgen:8, wind:1, species:"reed",
+  desc:"Curling single vine — one long ascending harmonic-series glissando."},
+ {name:"Twin Fern", axiom:"X", X:"F-[[X]+X]+F[+FX]-X", Y:"", F:"FF", f:"",
+  theta:25, seglen:26, ldecay:82, maxgen:6, wind:2, species:"fern",
+  desc:"Mirror image of the Fractal Plant. Denser high canopy shimmer."},
+];
+
+/* ============================================================
+   1. L-SYSTEM DERIVATION
+   ============================================================ */
+function derive(gen){
+  const axiom=$("axiom").value.trim()||"X";
+  const rules={ X:$("ruleX").value.trim(), Y:$("ruleY").value.trim(),
+                F:$("ruleF").value.trim(), f:$("rulef").value.trim() };
+  let s=axiom;
+  for(let i=0;i<gen;i++){
+    let out="";
+    for(const c of s){ out += (rules[c]!==undefined && rules[c]!=="")?rules[c]:c; }
+    s=out;
+    if(s.length>26000){ break; } // safety cap → keeps node count sane
+  }
+  return s;
+}
+
+/* JI ratios keyed by branch angle magnitude (degrees). Nearest match. */
+const JI=[ [0,1/1,"1:1 unison"],[16.4,9/8,"9:8 maj2"],[22.5,8/7,"8:7 sep2"],
+  [27,7/6,"7:6 sep-m3"],[33.5,6/5,"6:5 min3"],[45,5/4,"5:4 maj3"],
+  [56,4/3,"4:3 p4th"],[70,7/5,"7:5 tritone"],[90,3/2,"3:2 p5th"] ];
+function ratioForAngle(a){
+  a=Math.abs(a)%180; if(a>90)a=180-a;
+  let best=JI[0],bd=1e9;
+  for(const j of JI){ const d=Math.abs(j[0]-a); if(d<bd){bd=d;best=j;} }
+  return best; // [angle, ratio, label]
+}
+function foldFreq(f,depth){
+  // register climbs with depth → trunk sits low, canopy rises into the treble
+  depth=depth||0;
+  const lo=62*Math.pow(2,Math.min(7,depth)*0.5);
+  const hi=lo*2;
+  while(f>=hi)f/=2; while(f<lo)f*=2;
+  return Math.min(f,11000);
+}
+
+/* ============================================================
+   2. TURTLE INTERPRETER → stable node tree (pathId identity)
+   ============================================================ */
+function interpret(str){
+  const th=P.theta, base=P.seglen;
+  // start bottom-center, heading straight up (-90deg)
+  const st={ x:0, y:0, ang:-90, depth:0, ratio:1, path:"r" };
+  const stack=[]; let cur={...st};
+  const segs=[]; // {pathId,parent,x0,y0,x1,y1,depth,ratio,turn,ang}
+  let counter={"r":0};
+  cur.path="r";
+  function segLen(d){ return base*Math.pow(P.ldecay,d); }
+  let pendingTurn=0;
+  for(const c of str){
+    if(c==='F'||c==='G'){
+      const d=cur.depth;
+      const len=segLen(d);
+      // pathId: encode branch path + running seg index within this branch
+      counter[cur.path]=(counter[cur.path]||0)+1;
+      const pid=cur.path+"/"+counter[cur.path];
+      // deterministic "wind" jitter, stable across re-derivations
+      const jit = P.wind>0 ? (hash01(pid)*2-1)*P.wind : 0;
+      cur.ang += jit;
+      const effTurn = pendingTurn + jit;
+      const rad=cur.ang*Math.PI/180;
+      const nx=cur.x+Math.cos(rad)*len, ny=cur.y+Math.sin(rad)*len;
+      const rr=ratioForAngle(effTurn);
+      const ratio=cur.ratio*(effTurn>=0?rr[1]:1/rr[1]);
+      segs.push({pathId:pid,parent:cur.parentSeg||null,x0:cur.x,y0:cur.y,x1:nx,y1:ny,
+                 depth:d,ratio:ratio,turn:effTurn,ang:cur.ang,label:rr[2]});
+      cur.x=nx; cur.y=ny; cur.ratio=ratio; cur.parentSeg=pid; pendingTurn=0;
+    } else if(c==='f'){                       // silent move — no voice, no segment
+      const len=segLen(cur.depth), rad=cur.ang*Math.PI/180;
+      cur.x+=Math.cos(rad)*len; cur.y+=Math.sin(rad)*len; pendingTurn=0;
+    } else if(c==='+'){ cur.ang+=th; pendingTurn=th; }
+      else if(c==='-'){ cur.ang-=th; pendingTurn=-th; }
+      else if(c==='|'){ cur.ang+=180; pendingTurn=0; }
+      else if(c==='['){
+        stack.push({...cur});
+        // new branch id
+        const bk=cur.path;
+        counter["B"+bk]=(counter["B"+bk]||0)+1;
+        cur.path=cur.path+"."+counter["B"+bk];
+        cur.depth=cur.depth+1;
+        if(counter[cur.path]===undefined)counter[cur.path]=0;
+      } else if(c===']'){
+        cur=stack.pop();
+      }
+    if(segs.length>4200)break; // hard visual cap
+  }
+  return segs;
+}
+
+/* ============================================================
+   3. AUDIO ENGINE (Web Audio) — Rhizome architecture
+   ============================================================ */
+let ac=null, master, limiter, dry, wet, convolver, canopyBus, underBus, subOsc, subGain, noiseNode, noiseGain, noiseLP, recDest;
+let widthGain, spaceSend, ppMergeNode, breathDepth, airShelf, loShelf, midPeak, driveShaper, driveMix, freezeGain;
+function buildAudio(){
+  if(ac)return;
+  ac=new (window.AudioContext||window.webkitAudioContext)();
+  master=ac.createGain(); master.gain.value=P.master;
+  limiter=ac.createDynamicsCompressor();
+  limiter.threshold.value=-8; limiter.knee.value=6; limiter.ratio.value=12;
+  limiter.attack.value=0.003; limiter.release.value=0.25;
+  // reverb
+  convolver=ac.createConvolver(); convolver.buffer=makeImpulse(3.4,2.6);
+  dry=ac.createGain(); wet=ac.createGain();
+  wet.gain.value=P.verb; dry.gain.value=1;
+  canopyBus=ac.createGain(); canopyBus.gain.value=P.canopy;
+  underBus=ac.createGain(); underBus.gain.value=P.roots;
+  // ---- FREEZE bus: capture-and-hold canopy state as a sustained pad via a long-tail convolver ----
+  const freezeConv=ac.createConvolver(); freezeConv.buffer=makeImpulse(12,0.6); // long slow tail
+  freezeGain=ac.createGain(); freezeGain.gain.value=0;      // 0 = off; >0 = pad audible
+  canopyBus.connect(freezeConv); freezeConv.connect(freezeGain); freezeGain.connect(dry);
+  // busses → canopy goes through reverb; underground BYPASSES reverb (reverbed sub = mud)
+  canopyBus.connect(dry); canopyBus.connect(convolver);
+  underBus.connect(dry);
+  convolver.connect(wet);
+  dry.connect(master); wet.connect(master);
+  // ---- ping-pong "SPACE" delay (cross-fed stereo echoes, fed from canopy) ----
+  spaceSend=ac.createGain(); spaceSend.gain.value=P.space;
+  const dL=ac.createDelay(1.5), dR=ac.createDelay(1.5);
+  dL.delayTime.value=0.27; dR.delayTime.value=0.38;
+  const fbL=ac.createGain(), fbR=ac.createGain(); fbL.gain.value=0.40; fbR.gain.value=0.40;
+  // tone filters INSIDE the feedback loop → each bounce progressively darkens
+  const ppTone=ac.createBiquadFilter(); ppTone.type="lowpass"; ppTone.frequency.value=2600;
+  const ppToneR=ac.createBiquadFilter(); ppToneR.type="lowpass"; ppToneR.frequency.value=2600;
+  spaceSend.connect(dL); spaceSend.connect(dR);
+  dL.connect(ppTone);  ppTone.connect(fbL);  fbL.connect(dR);     // L → filter → cross-feed R
+  dR.connect(ppToneR); ppToneR.connect(fbR); fbR.connect(dL);     // R → filter → cross-feed L
+  ppMergeNode=ac.createChannelMerger(2);
+  ppTone.connect(ppMergeNode,0,0);    // filtered left echoes → left channel
+  ppToneR.connect(ppMergeNode,0,1);   // filtered right echoes → right channel
+  canopyBus.connect(spaceSend);
+  ppMergeNode.connect(master);
+  // ---- global slow "breath": tidal swell on the whole canopy over ~1 min ----
+  const breathLfo=ac.createOscillator(); breathLfo.type="sine"; breathLfo.frequency.value=0.017;
+  breathDepth=ac.createGain(); breathDepth.gain.value=P.drift*0.10;
+  breathLfo.connect(breathDepth); breathDepth.connect(canopyBus.gain); breathLfo.start();
+  // ---- master → M/S width → 3-band EQ (LOW / HI-MID / AIR) → parallel DRIVE → limiter ----
+  const wnode=buildWidth(master); widthGain=wnode.width; wnode.width.value=P.width;
+  loShelf=ac.createBiquadFilter(); loShelf.type="lowshelf"; loShelf.frequency.value=140; loShelf.gain.value=P.lo;
+  midPeak=ac.createBiquadFilter(); midPeak.type="peaking"; midPeak.frequency.value=900; midPeak.Q.value=0.9; midPeak.gain.value=P.himid;
+  airShelf=ac.createBiquadFilter(); airShelf.type="highshelf"; airShelf.frequency.value=5200; airShelf.gain.value=P.air;
+  wnode.out.connect(loShelf); loShelf.connect(midPeak); midPeak.connect(airShelf);
+  // parallel drive: dry EQ'd signal → limiter, plus a driven copy blended in at P.drive amount
+  const preDrive=ac.createGain(); preDrive.gain.value=1.5;             // hit the shaper harder
+  driveShaper=ac.createWaveShaper(); driveShaper.curve=driveCurve(); driveShaper.oversample="4x";
+  driveMix=ac.createGain(); driveMix.gain.value=P.drive;
+  airShelf.connect(limiter);                                            // dry path
+  airShelf.connect(preDrive); preDrive.connect(driveShaper); driveShaper.connect(driveMix); driveMix.connect(limiter);
+  limiter.connect(ac.destination);
+  // recorder tap (post-limiter, fully processed)
+  recDest=ac.createGain(); limiter.connect(recDest);
+  // ---- underground: sub + brown noise ----
+  subOsc=ac.createOscillator(); subOsc.type="sine"; subOsc.frequency.value=P.rootfreq/2;
+  subGain=ac.createGain(); subGain.gain.value=0;
+  subOsc.connect(subGain); subGain.connect(underBus); subOsc.start();
+  noiseNode=makeBrownNoise();
+  noiseLP=ac.createBiquadFilter(); noiseLP.type="lowpass"; noiseLP.frequency.value=180;
+  noiseGain=ac.createGain(); noiseGain.gain.value=0;
+  noiseNode.connect(noiseLP); noiseLP.connect(noiseGain); noiseGain.connect(underBus);
+  $("ledaudio").classList.add("on");
+}
+function makeImpulse(dur,decay){
+  const rate=ac.sampleRate, len=rate*dur, buf=ac.createBuffer(2,len,rate);
+  for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch);
+    for(let i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay); } }
+  return buf;
+}
+function makeBrownNoise(){
+  // 2 independent channels → decorrelated, wide atmospheric noise floor
+  const len=ac.sampleRate*2, buf=ac.createBuffer(2,len,ac.sampleRate);
+  for(let ch=0;ch<2;ch++){ const d=buf.getChannelData(ch); let last=0;
+    for(let i=0;i<len;i++){ const w=Math.random()*2-1; last=(last+0.02*w)/1.02; d[i]=last*3.2; } }
+  const src=ac.createBufferSource(); src.buffer=buf; src.loop=true; src.start(); return src;
+}
+/* mid/side stereo width matrix: width 0=mono, 1=neutral, >1 wider */
+function buildWidth(inputNode){
+  const split=ac.createChannelSplitter(2);
+  inputNode.connect(split);
+  const mid=ac.createGain(), side=ac.createGain();
+  const lMid=ac.createGain(); lMid.gain.value=0.5;
+  const rMid=ac.createGain(); rMid.gain.value=0.5;
+  split.connect(lMid,0); split.connect(rMid,1);
+  lMid.connect(mid); rMid.connect(mid);                 // mid = 0.5L + 0.5R
+  const lSide=ac.createGain(); lSide.gain.value=0.5;
+  const rSide=ac.createGain(); rSide.gain.value=-0.5;
+  split.connect(lSide,0); split.connect(rSide,1);
+  lSide.connect(side); rSide.connect(side);             // side = 0.5L - 0.5R
+  const w=ac.createGain(); w.gain.value=1;              // width amount
+  side.connect(w);
+  const Lg=ac.createGain(), Rg=ac.createGain();
+  mid.connect(Lg); mid.connect(Rg);                     // L=mid(+side*w) R=mid(-side*w)
+  w.connect(Lg);
+  const inv=ac.createGain(); inv.gain.value=-1; w.connect(inv); inv.connect(Rg);
+  const merger=ac.createChannelMerger(2);
+  Lg.connect(merger,0,0); Rg.connect(merger,0,1);
+  return {out:merger, width:w.gain};
+}
+function bitcrushCurve(bits){
+  const n=1024, curve=new Float32Array(n), step=Math.pow(2,bits);
+  for(let i=0;i<n;i++){ const x=i/(n-1)*2-1; curve[i]=Math.round(x*step)/step; }
+  return curve;
+}
+/* smooth tanh soft-clip → musical saturation with even+odd harmonics */
+function driveCurve(){
+  const n=2048, curve=new Float32Array(n), k=2.2;
+  for(let i=0;i<n;i++){ const x=i/(n-1)*2-1; curve[i]=Math.tanh(k*x); }
+  return curve;
+}
+const SPEC={
+  fern:  {osc:"triangle",fm:true, q:6, tremDepth:0.5},
+  oak:   {osc:"sawtooth",fm:false,q:3, tremDepth:0.35},
+  reed:  {osc:"sine",    fm:false,q:9, tremDepth:0.6},
+  thorn: {osc:"square",  fm:false,q:2, tremDepth:0.7},
+  bell:  {osc:"sine",    fm:true, q:8, tremDepth:0.25},  // FM sine → metallic bell partials
+  bow:   {osc:"sawtooth",fm:false,q:5, tremDepth:0.45},  // narrow saw = bowed string
+  glass: {osc:"triangle",fm:false,q:11,tremDepth:0.3},   // very high-Q tri = glassy resonance
+  breath:{osc:"sine",    fm:false,q:1.5,tremDepth:0.8},  // very wide filter = airy hush
+};
+
+/* create an audible voice for a node */
+function startVoice(node){
+  if(!ac) return;
+  if(S.voicesActive>=S.voiceBudget) return; // budget: rest are visual-only
+  const sp=SPEC[node.species]||SPEC.fern;
+  const t=ac.currentTime;
+  const freq=node.freq;
+  const g=ac.createGain(); g.gain.setValueAtTime(0.0001,t);
+  const amp=0.15/(1+node.depth*0.18);   // gentler rolloff → canopy voices stay present
+  g.gain.exponentialRampToValueAtTime(Math.max(0.002,amp),t+1.2+node.depth*0.15);
+  const bp=ac.createBiquadFilter(); bp.type="bandpass";
+  bp.frequency.value=Math.min(10000,freq*(1+node.depth*0.5)); bp.Q.value=Math.max(1.1,sp.q-node.depth*0.6);
+  const bpBase=bp.frequency.value;
+  const bp2=ac.createBiquadFilter(); bp2.type="bandpass"; bp2.frequency.value=bpBase; bp2.Q.value=bp.Q.value;
+  // ---- twin oscillators panned apart with slight detune = chorused stereo width ----
+  const usePan=!!ac.createStereoPanner;
+  const px=(node.x1/220);
+  const basePan=Math.max(-0.9,Math.min(0.9,px*(0.5+node.depth*0.16)));
+  const spread=0.42;
+  let pan=null,pan2=null,panLfo=null;
+  if(usePan){
+    pan =ac.createStereoPanner(); pan.pan.value =Math.max(-1,Math.min(1,basePan-spread));
+    pan2=ac.createStereoPanner(); pan2.pan.value=Math.max(-1,Math.min(1,basePan+spread));
+    // independent slow auto-pan drift → both move together, image drifts through the field
+    panLfo=ac.createOscillator(); panLfo.type="sine";
+    panLfo.frequency.value=0.02+hash01(node.pathId+"p")*0.13;
+    const panDepth=ac.createGain(); panDepth.gain.value=Math.min(0.5,0.22+node.depth*0.05);
+    panLfo.connect(panDepth); panDepth.connect(pan.pan); panDepth.connect(pan2.pan); panLfo.start();
+  }
+  // main + detuned twin oscillators (symmetric detune around the true pitch)
+  const osc =ac.createOscillator(); osc.type =sp.osc; osc.frequency.value =freq; osc.detune.value =-P.detune/2;
+  const osc2=ac.createOscillator(); osc2.type=sp.osc; osc2.frequency.value=freq; osc2.detune.value=+P.detune/2;
+  let fm=null,fmg=null;
+  if(sp.fm){ fm=ac.createOscillator(); fm.frequency.value=freq*1.5; fmg=ac.createGain();
+    fmg.gain.value=freq*0.6; fm.connect(fmg); fmg.connect(osc.frequency); fmg.connect(osc2.frequency); fm.start(); }
+  // slow detune drift → the twin beats wander, shimmering over time
+  const detLfo=ac.createOscillator(); detLfo.type="sine";
+  detLfo.frequency.value=0.015+hash01(node.pathId+"d")*0.05;
+  const detDepth=ac.createGain(); detDepth.gain.value=1.5+P.drift*7; // ± cents
+  detLfo.connect(detDepth); detDepth.connect(osc2.detune); detLfo.start();
+  // slow bandpass sweep → timbre opens & closes over tens of seconds
+  const filtLfo=ac.createOscillator(); filtLfo.type="sine";
+  filtLfo.frequency.value=0.008+hash01(node.pathId+"f")*0.03;
+  const filtDepth=ac.createGain(); filtDepth.gain.value=bpBase*(0.12+P.drift*0.45);
+  filtLfo.connect(filtDepth); filtDepth.connect(bp.frequency); filtDepth.connect(bp2.frequency); filtLfo.start();
+  // tremolo LFO => polyrhythm: rate tied to node ratio
+  const lfo=ac.createOscillator(); lfo.type="sine";
+  const lfoRate = P.tempoSync ? (1000/P.cycleMs)*(node.ratioMul||1)
+                              : P.pulse*(node.ratioMul||1);
+  lfo.frequency.value=Math.max(0.05,lfoRate);
+  const lfoG=ac.createGain(); lfoG.gain.value=amp*sp.tremDepth;
+  lfo.connect(lfoG); lfoG.connect(g.gain); lfo.start();
+  // signal path (through a dedicated mute-gain used by Solo, untouched by the tremolo LFO)
+  const mute=ac.createGain(); mute.gain.value=(S.soloed && !isInSolo(node))?0:1;
+  osc.connect(bp);   bp.connect(pan||g);   if(pan)pan.connect(g);
+  osc2.connect(bp2); bp2.connect(pan2||g); if(pan2)pan2.connect(g);
+  g.connect(mute); mute.connect(canopyBus);
+  osc.start(); osc2.start();
+  node.voice={osc,osc2,fm,g,bp,bp2,lfo,lfoG,pan,pan2,panLfo,detLfo,filtLfo,detDepth,filtDepth,mute,amp,bpBase,started:t,crushed:false};
+  S.voicesActive++;
+  midiNoteOn(node);
+}
+function decayVoice(node){ // digital-rot decay → fade to true silence, then free the slot
+  const v=node.voice; if(!v||v.crushed)return; v.crushed=true;
+  const t=ac.currentTime;
+  const shaper=ac.createWaveShaper(); shaper.curve=bitcrushCurve(3);
+  // insert bitcrusher on the summed voice output: g -> shaper -> mute
+  try{ v.g.disconnect(); }catch(e){}
+  v.g.connect(shaper); shaper.connect(v.mute);
+  v.lfoG.gain.setTargetAtTime(0.0001,t,3);   // remove tremolo so it can reach real silence
+  v.bp.frequency.exponentialRampToValueAtTime(Math.max(80,v.bp.frequency.value*0.2),t+8);
+  if(v.bp2)v.bp2.frequency.exponentialRampToValueAtTime(Math.max(80,v.bp2.frequency.value*0.2),t+8);
+  v.g.gain.setTargetAtTime(0.0001,t+4,4);
+  // stop every source after the tail, then release the voice (guarded against double-free)
+  const endT=t+16;
+  [v.osc,v.osc2,v.fm,v.lfo,v.panLfo,v.detLfo,v.filtLfo].forEach(o=>{ if(o){try{o.stop(endT);}catch(e){}} });
+  midiNoteOff(node);
+  setTimeout(()=>{ if(node.voice===v){ node.voice=null; S.voicesActive=Math.max(0,S.voicesActive-1); } },
+             (endT-t)*1000+250);
+}
+function stopVoice(node,fast){
+  const v=node.voice; if(!v)return; const t=ac.currentTime;
+  v.g.gain.cancelScheduledValues(t);
+  v.g.gain.setValueAtTime(Math.max(0.0002,v.g.gain.value),t);
+  v.g.gain.exponentialRampToValueAtTime(0.0001,t+(fast?0.25:1.4));
+  const stopT=t+(fast?0.4:1.8);
+  try{v.osc.stop(stopT);}catch(e){} try{if(v.osc2)v.osc2.stop(stopT);}catch(e){} try{if(v.fm)v.fm.stop(stopT);}catch(e){}
+  try{v.lfo.stop(stopT);}catch(e){} try{if(v.panLfo)v.panLfo.stop(stopT);}catch(e){}
+  try{if(v.detLfo)v.detLfo.stop(stopT);}catch(e){} try{if(v.filtLfo)v.filtLfo.stop(stopT);}catch(e){}
+  midiNoteOff(node);
+  node.voice=null; S.voicesActive=Math.max(0,S.voicesActive-1);
+}
+function updateUnder(){
+  if(!ac)return; const t=ac.currentTime;
+  const depthReach=S.maxDepth||0;
+  const density=Math.min(1,S.nodes.size/500);
+  subGain.gain.setTargetAtTime((0.10+depthReach*0.05)*Math.min(1,0.3+density),t,0.6);
+  noiseGain.gain.setTargetAtTime(P.noise*density,t,0.8);
+  noiseLP.frequency.setTargetAtTime(120+depthReach*35,t,1);
+}
+/* live-retune every branch. glide = time-constant (short for slider, long for harmony drift).
+   effective root = base root × current progression ratio (grafted nodes keep their blend). */
+function retuneAll(glide){
+  if(!ac)return; const t=ac.currentTime, tau=glide||0.12;
+  const eff=P.rootfreq*(S.progRatio||1);
+  if(subOsc)subOsc.frequency.setTargetAtTime(eff/2,t,tau);
+  for(const n of S.nodes.values()){
+    if(n.grafted) continue;
+    n.freq=foldFreq(eff*n.ratioMul, n.depth);
+    const v=n.voice; if(!v)continue;
+    v.osc.frequency.setTargetAtTime(n.freq,t,tau);
+    if(v.osc2)v.osc2.frequency.setTargetAtTime(n.freq,t,tau);
+    const bpf=Math.min(10000,n.freq*(1+n.depth*0.5));
+    v.bp.frequency.setTargetAtTime(bpf,t,tau);
+    if(v.bp2)v.bp2.frequency.setTargetAtTime(bpf,t,tau);
+    v.bpBase=bpf;
+    if(v.filtDepth)v.filtDepth.gain.setTargetAtTime(bpf*(0.12+P.drift*0.45),t,tau);
+    if(v.fm) v.fm.frequency.setTargetAtTime(n.freq*1.5,t,tau);
+  }
+}
+
+/* ============================================================
+   4. GROWTH LOOP  (Deep-Time clock)
+   ============================================================ */
+function grow(){
+  if(S.targetGen>=P.maxgen) return;
+  S.targetGen++;
+  render();
+}
+function render(){
+  const segs=interpret(derive(S.targetGen));
+  // fit transform: compute bounds
+  let minx=0,maxx=0,miny=0,maxy=0;
+  for(const s of segs){ minx=Math.min(minx,s.x0,s.x1);maxx=Math.max(maxx,s.x0,s.x1);
+    miny=Math.min(miny,s.y0,s.y1);maxy=Math.max(maxy,s.y0,s.y1); }
+  const pad=30, bw=Math.max(1,maxx-minx), bh=Math.max(1,maxy-miny);
+  svg.setAttribute("viewBox",`${minx-pad} ${miny-pad} ${bw+pad*2} ${bh+pad*2}`);
+  for(const s of segs){
+    if(S.pruned.has(s.pathId)) continue; // stays snipped
+    let node=S.nodes.get(s.pathId);
+    if(!node){
+      // NEW branch this generation → born
+      node=makeNode(s);
+      S.nodes.set(s.pathId,node);
+      drawSeg(node);
+      startVoice(node);
+    }
+  }
+  // graft lines refresh
+  drawGrafts();
+  S.gen=S.targetGen;
+  updateUnder();
+  updateStatus();
+}
+function makeNode(s){
+  const freq=foldFreq(P.rootfreq*(S.progRatio||1)*s.ratio, s.depth);
+  if(s.depth>S.maxDepth) S.maxDepth=s.depth;
+  return {...s, species:P.species, freq, ratioMul:s.ratio, muted:false,
+    decaying:false, age:0, voice:null, el:null};
+}
+function drawSeg(node){
+  const w=Math.max(0.6,3.4*Math.pow(0.78,node.depth));
+  const hue=Math.min(1,node.depth/6);
+  const col=lerpCol([0x3a,0x6f,0x4f],[0x9f,0xff,0xc0],hue);
+  // --- visible line (non-interactive; hit handled by fat overlay) ---
+  const ln=document.createElementNS(SVGNS,"line");
+  ln.setAttribute("class","seg");
+  ln.setAttribute("x1",node.x0);ln.setAttribute("y1",node.y0);
+  ln.setAttribute("x2",node.x1);ln.setAttribute("y2",node.y1);
+  ln.setAttribute("stroke-width",w);
+  ln.setAttribute("stroke",col);
+  ln.style.pointerEvents="none";
+  ln.dataset.baseCol=col;
+  const len=Math.hypot(node.x1-node.x0,node.y1-node.y0);
+  ln.setAttribute("stroke-dasharray",len);
+  ln.setAttribute("stroke-dashoffset",len);
+  ln.style.transition="stroke-dashoffset .6s ease-out, stroke .18s, stroke-width .18s";
+  ln.dataset.pid=node.pathId;
+  svg.appendChild(ln);
+  requestAnimationFrame(()=>ln.setAttribute("stroke-dashoffset",0));
+  node.el=ln; node.baseW=w;
+  // --- fat invisible hit target: generous, easy to click on any branch ---
+  const hit=document.createElementNS(SVGNS,"line");
+  hit.setAttribute("x1",node.x0);hit.setAttribute("y1",node.y0);
+  hit.setAttribute("x2",node.x1);hit.setAttribute("y2",node.y1);
+  hit.setAttribute("stroke","transparent");
+  hit.setAttribute("stroke-width",Math.max(11,w+9));
+  hit.setAttribute("stroke-linecap","round");
+  hit.style.pointerEvents="stroke"; hit.style.cursor="pointer";
+  hit.addEventListener("click",e=>{e.stopPropagation();onSegClick(node);});
+  hit.addEventListener("dblclick",e=>{e.stopPropagation();toggleSolo(node);});
+  hit.addEventListener("mouseenter",()=>{ hover(node);
+    if(!S.pruned.has(node.pathId)){ ln.setAttribute("stroke","var(--sel)"); ln.setAttribute("stroke-width",w+0.8);} });
+  hit.addEventListener("mouseleave",()=>{ $("hud").dataset.hover="";
+    if(node.el&&!node.selected&&!S.pruned.has(node.pathId)){
+    ln.setAttribute("stroke",ln.dataset.baseCol); ln.setAttribute("stroke-width",node.baseW);} });
+  svg.appendChild(hit);
+  node.hit=hit;
+  // leaf dot for terminal-ish thin branches
+  if(node.depth>=P.maxgen-1){
+    const c=document.createElementNS(SVGNS,"circle");
+    c.setAttribute("cx",node.x1);c.setAttribute("cy",node.y1);
+    c.setAttribute("r",Math.max(1,w*0.9));c.setAttribute("fill","var(--leaf)");
+    c.setAttribute("opacity","0.9"); c.style.pointerEvents="none"; svg.appendChild(c); node.leaf=c;
+  }
+}
+function lerpCol(a,b,t){ const r=Math.round(a[0]+(b[0]-a[0])*t),g=Math.round(a[1]+(b[1]-a[1])*t),
+  bl=Math.round(a[2]+(b[2]-a[2])*t); return `rgb(${r},${g},${bl})`; }
+
+/* ============================================================
+   5. INTERACTION TOOLS
+   ============================================================ */
+function onSegClick(node){
+  if(S.tool==="prune") pruneNode(node);
+  else if(S.tool==="graft") graftNode(node);
+  else if(S.tool==="inspect") inspectNode(node);
+  else inspectNode(node);
+}
+function collectSubtree(pid){
+  const out=[]; for(const [k,n] of S.nodes){ if(k===pid||k.startsWith(pid)) out.push(n); }
+  return out;
+}
+function pruneNode(node){
+  const sub=collectSubtree(node.pathId);
+  for(const n of sub){
+    S.pruned.add(n.pathId);
+    if(n.voice) stopVoice(n,true);
+    if(n.el){ n.el.setAttribute("stroke","#7a2b2b"); n.el.style.opacity="0.35";
+      n.el.setAttribute("stroke-dasharray","2 3"); }
+    if(n.hit){ n.hit.style.pointerEvents="none"; }
+    if(n.leaf){ n.leaf.remove(); n.leaf=null; }
+  }
+  S.pruned.add(node.pathId);
+  if(S.selected && S.pruned.has(S.selected.pathId)){ clearSelection(); $("nodecard").style.display="none"; }
+  inspector(`✂ SNIPPED ${node.pathId} — muted ${sub.length} node(s). Growth halted on this limb.`);
+  updateStatus();
+}
+function clearSelection(){
+  if(S.lineage){ for(const n of S.lineage){ if(n.el&&!S.pruned.has(n.pathId)){
+    n.el.setAttribute("stroke",n.el.dataset.baseCol); n.el.setAttribute("stroke-width",n.baseW);
+    n.el.style.filter=""; } n.selected=false; } }
+  S.lineage=null; S.selected=null;
+}
+function graftNode(node){
+  if(!S.graftPick){ S.graftPick=node;
+    if(node.el)node.el.setAttribute("stroke","var(--graft)");
+    inspector(`◄ GRAFT: source limb ${node.pathId} selected (ratio ${node.freq.toFixed(1)}Hz). Now click a target limb.`);
+  } else {
+    const from=S.graftPick, to=node;
+    S.grafts.push({from:from.pathId,to:to.pathId,el:null});
+    // sonic merge: retune target subtree toward source ratio
+    const sub=collectSubtree(to.pathId);
+    for(const n of sub){
+      n.grafted=true;
+      const blended=foldFreq((n.freq+from.freq)/2, n.depth);
+      n.freq=blended;
+      if(n.voice){ n.voice.osc.frequency.setTargetAtTime(blended,ac.currentTime,0.8);
+        if(n.voice.osc2)n.voice.osc2.frequency.setTargetAtTime(blended,ac.currentTime,0.8);
+        const gbpf=Math.min(10000,blended*(1+n.depth*0.5));
+        n.voice.bp.frequency.setTargetAtTime(gbpf,ac.currentTime,0.8);
+        if(n.voice.bp2)n.voice.bp2.frequency.setTargetAtTime(gbpf,ac.currentTime,0.8);
+        n.voice.bpBase=gbpf;
+        if(n.voice.filtDepth)n.voice.filtDepth.gain.setTargetAtTime(gbpf*(0.12+P.drift*0.45),ac.currentTime,0.8); }
+    }
+    if(from.el)from.el.setAttribute("stroke",from.el.dataset.baseCol||lerpCol([0x3a,0x6f,0x4f],[0x9f,0xff,0xc0],Math.min(1,from.depth/6)));
+    S.graftPick=null;
+    inspector(`▬ GRAFTED ${from.pathId} → ${to.pathId}. ${sub.length} voices merged toward ${from.freq.toFixed(1)}Hz.`);
+    drawGrafts();
+  }
+}
+function drawGrafts(){
+  document.querySelectorAll(".graftln").forEach(e=>e.remove());
+  for(const g of S.grafts){
+    const a=S.nodes.get(g.from), b=S.nodes.get(g.to); if(!a||!b)continue;
+    const p=document.createElementNS(SVGNS,"path");
+    const mx=(a.x1+b.x0)/2, my=Math.min(a.y1,b.y0)-40;
+    p.setAttribute("d",`M${a.x1},${a.y1} Q${mx},${my} ${b.x0},${b.y0}`);
+    p.setAttribute("class","graftln");
+    p.setAttribute("fill","none");p.setAttribute("stroke","var(--graft)");
+    p.setAttribute("stroke-width","1.4");p.setAttribute("stroke-dasharray","4 3");
+    p.setAttribute("opacity","0.75");
+    svg.appendChild(p);
+  }
+}
+/* ---------- SOLO: isolate one harmonic thread (root→branch lineage) ---------- */
+function isInSolo(node){ return S.soloSet ? S.soloSet.has(node.pathId) : false; }
+function applySolo(){
+  if(!ac) return; const t=ac.currentTime;
+  for(const n of S.nodes.values()){ const v=n.voice; if(!v||!v.mute)continue;
+    const target=(!S.soloSet)?1:(S.soloSet.has(n.pathId)?1:0);
+    v.mute.gain.setTargetAtTime(target,t,0.08); }
+}
+function toggleSolo(node){
+  if(S.soloed===node.pathId){ S.soloed=null; S.soloSet=null; applySolo();
+    inspector("SOLO cleared — full canopy restored."); return; }
+  S.soloed=node.pathId;
+  S.soloSet=new Set(lineageOf(node).map(n=>n.pathId));
+  applySolo();
+  auditionFreq(node.freq,true);
+  inspector(`◉ SOLO ${node.pathId} — isolated ${S.soloSet.size}-branch lineage. Double-click again (or Esc) to release.`);
+}
+function clearSolo(){ if(S.soloed){ S.soloed=null; S.soloSet=null; applySolo(); } }
+
+const NOTE_NAMES=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+function noteName(m){ return NOTE_NAMES[((m%12)+12)%12]+(Math.floor(m/12)-1); }
+function ratioFraction(r){ // approximate ratio as small fraction for display
+  let best="?",bd=1e9;
+  for(let d=1;d<=16;d++){ const n=Math.round(r*d); const err=Math.abs(r-n/d);
+    if(err<bd && n<=32){ bd=err; best=n+":"+d; } }
+  return best;
+}
+function auditionFreq(freq,voiced){
+  if(!ac) return;
+  const t=ac.currentTime, o=ac.createOscillator(), g=ac.createGain();
+  o.type="triangle"; o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(voiced?0.22:0.14,t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.75);
+  o.connect(g); g.connect(canopyBus); o.start(t); o.stop(t+0.8);
+}
+function lineageOf(node){
+  const chain=[]; let p=node, guard=0;
+  while(p && guard++<64){ chain.push(p); p = p.parent ? S.nodes.get(p.parent) : null; }
+  return chain;
+}
+function inspectNode(node){
+  clearSelection();
+  // audible ping so you hear exactly which branch you touched
+  auditionFreq(node.freq, !!node.voice);
+  // highlight root→branch lineage
+  const chain=lineageOf(node); S.lineage=chain; S.selected=node; node.selected=true;
+  chain.forEach((n,i)=>{ if(!n.el||S.pruned.has(n.pathId))return;
+    n.selected=true;
+    n.el.setAttribute("stroke", i===0?"var(--sel)":"#ffd27a");
+    n.el.setAttribute("stroke-width", n.baseW + (i===0?1.4:0.7));
+    if(i===0) n.el.style.filter="drop-shadow(0 0 4px rgba(255,225,77,.9))";
+  });
+  const rr=ratioForAngle(node.turn), midi=freqToMidi(node.freq);
+  const desc=collectSubtree(node.pathId).length-1;
+  const card=$("nodecard");
+  card.innerHTML=
+    `<div class="nh"><span>◉ NODE ${node.pathId}</span><span>${node.voice?"● VOX":"○ mute"}</span></div>`+
+    `<div class="big">${noteName(midi)} · ${node.freq.toFixed(1)}Hz</div>`+
+    `<div class="kv"><span>interval</span><span>${rr[2]}</span></div>`+
+    `<div class="kv"><span>ratio→root</span><span>${ratioFraction(node.ratio)}</span></div>`+
+    `<div class="kv"><span>branch turn</span><span>${node.turn.toFixed(1)}°</span></div>`+
+    `<div class="kv"><span>depth</span><span>${node.depth}</span></div>`+
+    `<div class="kv"><span>MIDI note</span><span>${midi}</span></div>`+
+    `<div class="kv"><span>descendants</span><span>${desc}</span></div>`+
+    `<div class="kv"><span>species</span><span>${node.species}</span></div>`;
+  card.style.display="block";
+  inspector(`◉ ${node.pathId} — ${noteName(midi)} (${node.freq.toFixed(1)}Hz), ${rr[2]}, depth ${node.depth}. Lineage traced to root; branch auditioned.`);
+}
+function hover(node){
+  if(S.tool==="inspect"||S.tool==="grow"){
+    const rr=ratioForAngle(node.turn);
+    $("hud").dataset.hover=`${node.pathId} ${node.freq.toFixed(0)}Hz ${rr[2]}`;
+  }
+}
+function inspector(t){ $("inspector").textContent=t; }
+
+/* ============================================================
+   6. MAIN TICK
+   ============================================================ */
+function tick(){
+  const now=performance.now(), dt=now-S.lastT; S.lastT=now;
+  if(S.running && S.planted){
+    let fert=P.fert;
+    if(now<S.fertBurstUntil) fert=Math.max(fert,4);
+    S.clockAcc+=dt*fert;
+    if(S.clockAcc>=P.cycleMs){ S.clockAcc=0; if(S.targetGen<P.maxgen) grow(); }
+    // ♪ harmony drift: step the root through a slow JI progression
+    if(S.harmony){
+      S.progAcc+=dt;
+      const step=90000/S.evoRate;                 // 90s at rate 1 → 7.5s at rate 12
+      if(S.progAcc>=step){ S.progAcc=0;
+        S.progIdx=(S.progIdx+1)%PROGRESSION.length; S.progRatio=PROGRESSION[S.progIdx];
+        retuneAll(6);                              // long glide → swells into the new key
+        $("harmstat").textContent="root: "+PROG_LABEL[S.progIdx]+"  ("+(P.rootfreq*S.progRatio).toFixed(1)+"Hz)";
+        inspector("♪ Harmony drift → "+PROG_LABEL[S.progIdx]);
+      }
+    }
+    // aging & decay of fully-grown limbs
+    if(S.targetGen>=P.maxgen){
+      if(!S.agingList){                    // (re)build the small aging candidate list on completion or after a rebuild
+        if(!S.completeAt) S.completeAt=now;
+        S.agingList=[...S.nodes.values()].filter(n=>n.depth>=P.maxgen-1 && n.voice && !S.pruned.has(n.pathId));
+      }
+      const list=S.agingList;
+      for(let i=list.length-1;i>=0;i--){ const n=list[i];
+        if(n.decaying||!n.voice||S.pruned.has(n.pathId)){ list.splice(i,1); continue; }
+        n.age+=dt;
+        if(n.age>9000){ n.decaying=true; decayVoice(n); S.decayCount++;
+          if(n.el)n.el.setAttribute("stroke","#6b5a2b"); list.splice(i,1); }
+      }
+      // ♾ perpetual: after the canopy has held & largely decayed, re-seed a new cycle
+      if(P.perpetual && now-S.completeAt>PERPETUAL_HOLD){ perpetualBloom(); }
+    } else { S.completeAt=0; S.agingList=null; }
+    // deep-time progress readout
+    const remain=Math.max(0,(P.cycleMs-S.clockAcc)/fert/1000);
+    const held=S.completeAt?((now-S.completeAt)/1000):0;
+    $("sClock").textContent = S.targetGen>=P.maxgen
+      ? (P.perpetual ? `GROWTH CLOCK: CANOPY COMPLETE — re-seed in ${Math.max(0,(PERPETUAL_HOLD/1000-held)).toFixed(0)}s`
+                     : `GROWTH CLOCK: CANOPY COMPLETE — entropy phase`)
+      : `GROWTH CLOCK: next split in ${remain.toFixed(1)}s ${fert>1?"(fert ×"+fert+")":""}`;
+  }
+  // hud (throttled — cosmetic text doesn't need 60fps)
+  S.frame=(S.frame||0)+1;
+  if(S.frame%6===0){
+    $("hud").innerHTML=`<b>GEN</b> ${S.gen}/${P.maxgen} &nbsp; <b>θ</b> ${P.theta}°<br>`+
+      `<b>NODES</b> ${S.nodes.size} &nbsp; <b>VOX</b> ${S.voicesActive}/${S.voiceBudget}<br>`+
+      `<b>ROOT</b> ${P.rootfreq}Hz`+ ($("hud").dataset.hover?`<br>▸ ${$("hud").dataset.hover}`:"");
+  }
+  if(S.frame%18===0) updateSounding();
+  if(S.seasons && S.frame%4===0) updateSeasons(now);
+  requestAnimationFrame(tick);
+}
+/* live tally of currently-voicing Just-Intonation intervals */
+function updateSounding(){
+  const tally={};
+  for(const n of S.nodes.values()){
+    if(!n.voice) continue;
+    const lbl=ratioForAngle(n.turn)[2];
+    tally[lbl]=(tally[lbl]||0)+1;
+  }
+  const rows=Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+  $("sounding").innerHTML = rows.length
+    ? rows.map(([l,c])=>`${l} <span style="color:#0a7a2a">×${c}</span>`).join("<br>")
+    : "—";
+}
+function updateStatus(){
+  $("sGen").textContent=S.gen; $("sNodes").textContent=S.nodes.size;
+  $("sVoices").textContent=S.voicesActive; $("sDecay").textContent=S.decayCount;
+}
+
+/* ============================================================
+   7. WEB MIDI
+   ============================================================ */
+let midiAccess=null, midiPort=null;
+function freqToMidi(f){ return Math.max(0,Math.min(127,Math.round(69+12*Math.log2(f/440)))); }
+$("midiinit").onclick=async()=>{
+  if(!navigator.requestMIDIAccess){ $("midistat").textContent="status: Web MIDI unsupported in this browser"; return; }
+  try{
+    midiAccess=await navigator.requestMIDIAccess();
+    const sel=$("midiout"); sel.innerHTML="";
+    const outs=[...midiAccess.outputs.values()];
+    if(!outs.length){ sel.innerHTML="<option>— no outputs found —</option>"; $("midistat").textContent="status: enabled, 0 devices"; return; }
+    outs.forEach((o,i)=>{ const op=document.createElement("option"); op.value=i; op.textContent=o.name; sel.appendChild(op); });
+    midiPort=outs[0]; $("ledmidi").classList.add("on");
+    $("midistat").textContent="status: "+outs.length+" device(s) · sending notes";
+    sel.onchange=()=>{ midiPort=outs[sel.value]; };
+  }catch(e){ $("midistat").textContent="status: access denied"; }
+};
+function midiNoteOn(node){ if(!midiPort)return; const n=freqToMidi(node.freq);
+  const v=Math.max(20,90-node.depth*10); try{midiPort.send([0x90,n,v]);}catch(e){} node.midiNote=n; }
+function midiNoteOff(node){ if(!midiPort||node.midiNote==null)return; try{midiPort.send([0x80,node.midiNote,0]);}catch(e){} node.midiNote=null; }
+
+/* ============================================================
+   8. WAV RECORDER (PCM tap → 16-bit wav)
+   ============================================================ */
+let recording=false, recProc, recL=[], recR=[];
+$("recwav").onclick=()=>{
+  if(!ac){ inspector("Plant a seed first — audio engine is asleep."); return; }
+  if(!recording){
+    recL=[];recR=[];
+    const bufSize=4096;
+    recProc=ac.createScriptProcessor(bufSize,2,2);
+    recProc.onaudioprocess=e=>{
+      recL.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+      recR.push(new Float32Array(e.inputBuffer.getChannelData(1)));
+    };
+    recDest.connect(recProc); recProc.connect(ac.destination); // needs a sink to pull
+    recording=true; $("recwav").textContent="■ STOP REC"; $("recwav").classList.add("on");
+    $("recstat").textContent="recorder: ● RECORDING…";
+  } else {
+    recording=false; try{recProc.disconnect();recDest.disconnect(recProc);}catch(e){}
+    $("recwav").textContent="● REC .WAV"; $("recwav").classList.remove("on");
+    const wav=encodeWav(recL,recR,ac.sampleRate);
+    const url=URL.createObjectURL(wav);
+    const a=document.createElement("a"); a.href=url; a.download="botanical-drone.wav"; a.click();
+    const secs=(recL.reduce((s,b)=>s+b.length,0)/ac.sampleRate).toFixed(1);
+    $("recstat").innerHTML=`recorder: saved ${secs}s → <a class="dl" href="${url}" download="botanical-drone.wav">botanical-drone.wav</a>`;
+  }
+};
+function flatten(chunks){ let len=0;chunks.forEach(c=>len+=c.length);const out=new Float32Array(len);
+  let o=0;chunks.forEach(c=>{out.set(c,o);o+=c.length;});return out; }
+function encodeWav(Lc,Rc,rate){
+  const L=flatten(Lc),R=flatten(Rc),n=L.length,bytes=n*4+44;
+  const ab=new ArrayBuffer(bytes),v=new DataView(ab);let p=0;
+  const wr=s=>{for(let i=0;i<s.length;i++)v.setUint8(p++,s.charCodeAt(i));};
+  const u32=x=>{v.setUint32(p,x,true);p+=4;},u16=x=>{v.setUint16(p,x,true);p+=2;};
+  wr("RIFF");u32(36+n*4);wr("WAVE");wr("fmt ");u32(16);u16(1);u16(2);u32(rate);u32(rate*4);u16(4);u16(16);
+  wr("data");u32(n*4);
+  for(let i=0;i<n;i++){ let l=Math.max(-1,Math.min(1,L[i])),r=Math.max(-1,Math.min(1,R[i]));
+    v.setInt16(p,l<0?l*32768:l*32767,true);p+=2; v.setInt16(p,r<0?r*32768:r*32767,true);p+=2; }
+  return new Blob([ab],{type:"audio/wav"});
+}
+/* SVG export */
+$("svgexp").onclick=()=>{
+  const clone=svg.cloneNode(true);
+  const vb=svg.getAttribute("viewBox").split(" ");
+  const bg=document.createElementNS(SVGNS,"rect");
+  bg.setAttribute("x",vb[0]);bg.setAttribute("y",vb[1]);bg.setAttribute("width",vb[2]);bg.setAttribute("height",vb[3]);
+  bg.setAttribute("fill","#0a0d0a"); clone.insertBefore(bg,clone.firstChild);
+  clone.setAttribute("xmlns",SVGNS);
+  const str='<?xml version="1.0"?>\n'+new XMLSerializer().serializeToString(clone);
+  const blob=new Blob([str],{type:"image/svg+xml"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="botanical-score.svg";a.click();
+  inspector("▤ Exported generative score → botanical-score.svg ("+S.nodes.size+" nodes).");
+};
+
+/* ============================================================
+   9. UI WIRING
+   ============================================================ */
+// tools
+document.querySelectorAll(".tool").forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll(".tool").forEach(x=>x.classList.remove("on"));
+    t.classList.add("on"); S.tool=t.dataset.tool;
+    stage.classList.toggle("pruneC",S.tool==="prune"||S.tool==="graft");
+    const hints={grow:"MODE: GROW [1] — watch the canopy expand",prune:"MODE: PRUNE [2] — click a limb to snip & mute it",
+      graft:"MODE: GRAFT [3] — click source limb, then target limb",inspect:"MODE: LOOK [4] — click a limb to hear it & trace its lineage"};
+    $("modehint").textContent=hints[S.tool];
+    if(S.tool!=="graft"&&S.graftPick){ S.graftPick=null; }
+  };
+});
+// sliders
+function bind(id,fn,fmt){ const el=$(id),v=$(id+"V");
+  el.oninput=()=>{ const val=parseFloat(el.value); fn(val); if(v)v.textContent=fmt?fmt(val):val; }; }
+bind("theta",v=>P.theta=v,v=>v);
+bind("seglen",v=>P.seglen=v);
+bind("ldecay",v=>P.ldecay=v/100,v=>v);
+bind("maxgen",v=>{P.maxgen=v;});
+bind("wind",v=>{P.wind=v;});
+bind("master",v=>{P.master=v/100;if(master)master.gain.value=P.master;});
+bind("canopy",v=>{P.canopy=v/100;if(canopyBus)canopyBus.gain.setTargetAtTime(P.canopy,ac.currentTime,0.1);});
+bind("roots",v=>{P.roots=v/100;if(underBus)underBus.gain.setTargetAtTime(P.roots,ac.currentTime,0.1);});
+bind("noise",v=>{P.noise=v/100;updateUnder&&ac&&updateUnder();});
+bind("verb",v=>{P.verb=v/100;if(wet)wet.gain.setTargetAtTime(P.verb,ac.currentTime,0.1);});
+bind("lo",v=>{P.lo=v;if(loShelf)loShelf.gain.setTargetAtTime(P.lo,ac.currentTime,0.1);});
+bind("himid",v=>{P.himid=v;if(midPeak)midPeak.gain.setTargetAtTime(P.himid,ac.currentTime,0.1);});
+bind("air",v=>{P.air=v;if(airShelf)airShelf.gain.setTargetAtTime(P.air,ac.currentTime,0.1);});
+bind("drive",v=>{P.drive=v/100;if(driveMix)driveMix.gain.setTargetAtTime(P.drive,ac.currentTime,0.1);});
+bind("width",v=>{P.width=v/100;if(widthGain)widthGain.setTargetAtTime(P.width,ac.currentTime,0.08);});
+bind("space",v=>{P.space=v/100;if(spaceSend)spaceSend.gain.setTargetAtTime(P.space,ac.currentTime,0.1);});
+bind("pulse",v=>{P.pulse=v/10;
+  if(ac)for(const n of S.nodes.values())if(n.voice)n.voice.lfo.frequency.setTargetAtTime(Math.max(0.05,P.pulse*(n.ratioMul||1)),ac.currentTime,0.3);},
+  v=>(v/10).toFixed(1));
+bind("rootfreq",v=>{P.rootfreq=v;retuneAll();});
+$("species").onchange=e=>{ P.species=e.target.value; if(S.planted) softRebuild(); };
+// deep time cycle: log-ish scale
+const CYCLES=[100,500,1000,2000,5000,30000,300000];
+const CYCLABEL=["0.1s","0.5s","1s","2s","5s","30s","5min"];
+$("cycle").oninput=e=>{ const i=+e.target.value; P.cycleMs=CYCLES[i];
+  $("cycleV").textContent=CYCLABEL[i];
+  $("cyclelbl").textContent="one branch-split every "+CYCLABEL[i];
+  if(P.tempoSync && ac){ const t=ac.currentTime, r=1000/P.cycleMs;
+    for(const n of S.nodes.values()){ const vo=n.voice; if(!vo)continue;
+      vo.lfo.frequency.setTargetAtTime(Math.max(0.05,r*(n.ratioMul||1)),t,0.4); } } };
+$("fert").oninput=e=>{P.fert=+e.target.value;$("fertV").textContent=P.fert;};
+$("fertburst").onclick=()=>{ S.fertBurstUntil=performance.now()+5000; inspector("💧 Fertilizer dumped — accelerated growth for 5s."); };
+
+// ---- EVOLUTION: detune (live twin spread) + drift (slow-modulation depth) ----
+bind("detune",v=>{ P.detune=v; if(!ac)return; const t=ac.currentTime;
+  for(const n of S.nodes.values()){ const vo=n.voice; if(!vo)continue;
+    if(vo.osc)vo.osc.detune.setTargetAtTime(-P.detune/2,t,0.2);
+    if(vo.osc2)vo.osc2.detune.setTargetAtTime(P.detune/2,t,0.2); } });
+bind("drift",v=>{ P.drift=v/100; if(!ac)return; const t=ac.currentTime;
+  if(breathDepth)breathDepth.gain.setTargetAtTime(P.drift*0.10,t,0.3);
+  for(const n of S.nodes.values()){ const vo=n.voice; if(!vo)continue;
+    if(vo.detDepth)vo.detDepth.gain.setTargetAtTime(1.5+P.drift*7,t,0.3);
+    if(vo.filtDepth)vo.filtDepth.gain.setTargetAtTime(vo.bpBase*(0.12+P.drift*0.45),t,0.3); } });
+bind("density",v=>{ S.voiceBudget=v; });
+$("tempoSync").onclick=()=>{ P.tempoSync=!P.tempoSync;
+  $("tempoSync").classList.toggle("on",P.tempoSync);
+  $("tempoSync").textContent="🕒 TEMPO SYNC: "+(P.tempoSync?"ON":"OFF");
+  // when on, each voice's pulse rate is derived from the growth cycle (musical polyrhythm)
+  if(ac){ const t=ac.currentTime;
+    for(const n of S.nodes.values()){ const vo=n.voice; if(!vo)continue;
+      const r=P.tempoSync ? (1000/P.cycleMs)*(n.ratioMul||1)
+                          : Math.max(0.05,P.pulse*(n.ratioMul||1));
+      vo.lfo.frequency.setTargetAtTime(Math.max(0.05,r),t,0.3); } }
+  inspector(P.tempoSync?"🕒 Tempo sync engaged — voice pulses locked to growth cycle."
+                       :"Tempo sync disengaged — pulses return to PULSE Hz.");
+};
+$("freeze").onclick=()=>{
+  if(!ac){ inspector("Plant a seed first — nothing to freeze yet."); return; }
+  const on=freezeGain.gain.value<0.05;
+  freezeGain.gain.setTargetAtTime(on?0.7:0, ac.currentTime, 0.6);
+  $("freeze").classList.toggle("on",on);
+  $("freeze").textContent = on ? "❆ RELEASE FREEZE" : "❆ FREEZE CANOPY";
+  inspector(on ? "❆ Canopy frozen — current harmonic state held as a sustained pad. Grow a new tree over the top."
+              : "Freeze released.");
+};
+$("perpetual").onclick=()=>{ P.perpetual=!P.perpetual;
+  $("perpetual").classList.toggle("on",P.perpetual);
+  $("perpetual").textContent="♾ PERPETUAL: "+(P.perpetual?"ON":"OFF");
+  S.completeAt=(P.perpetual && S.targetGen>=P.maxgen)?performance.now():0;
+  inspector(P.perpetual?"♾ Perpetual bloom engaged — a completed canopy will decay, re-seed, and regrow indefinitely."
+                       :"Perpetual bloom disengaged.");
+};
+function perpetualBloom(){
+  // gentle self-mutation, then regrow a fresh cycle. Decay tails + reverb/space bridge the seam.
+  const roll=Math.random();
+  if(roll<0.5){ P.theta=Math.max(10,Math.min(90,+(P.theta+(Math.random()*10-5)).toFixed(1)));
+    $("theta").value=P.theta; $("thetaV").textContent=P.theta; }
+  else { P.wind=Math.max(0,Math.min(18,+(P.wind+(Math.random()<.5?-1.5:2)).toFixed(1)));
+    $("wind").value=P.wind; $("windV").textContent=P.wind; }
+  if(Math.random()<0.4){ const sp=["fern","oak","reed","thorn"]; P.species=sp[Math.floor(Math.random()*sp.length)]; $("species").value=P.species; }
+  S.pruned.clear(); S.decayCount=0; S.targetGen=1; S.clockAcc=0; S.completeAt=0;
+  softRebuild();
+  inspector("♾ Bloom — the canopy re-seeds (θ "+P.theta+"°, "+P.species+") and a new growth cycle begins.");
+}
+// ---- DEEP TIME EVO: master rate, Seasons (macro drift), Harmony (root progression) ----
+bind("evorate",v=>{S.evoRate=v;});
+$("seasons").onclick=()=>{ S.seasons=!S.seasons;
+  $("seasons").classList.toggle("on",S.seasons);
+  $("seasons").textContent="❄ SEASONS: "+(S.seasons?"ON":"OFF");
+  if(!S.seasons) restoreSeasonParams();
+  inspector(S.seasons?"❄ Seasons engaged — width, space, reverb & level now drift slowly on their own."
+                     :"Seasons disengaged — mix returns to your fader settings.");
+};
+$("harmony").onclick=()=>{ S.harmony=!S.harmony;
+  $("harmony").classList.toggle("on",S.harmony);
+  $("harmony").textContent="♪ HARMONY DRIFT: "+(S.harmony?"ON":"OFF");
+  if(!S.harmony){ S.progRatio=1; S.progIdx=0; S.progAcc=0; retuneAll(6);
+    $("harmstat").textContent="root: home key (I)"; }
+  else { S.progAcc=0; }
+  inspector(S.harmony?"♪ Harmony drift engaged — the root will glide through a slow JI progression."
+                     :"Harmony drift disengaged — gliding home to the root key.");
+};
+function restoreSeasonParams(){
+  if(!ac)return; const t=ac.currentTime;
+  if(widthGain)widthGain.setTargetAtTime(P.width,t,0.6);
+  if(spaceSend)spaceSend.gain.setTargetAtTime(P.space,t,0.6);
+  if(wet)wet.gain.setTargetAtTime(P.verb,t,0.6);
+  if(canopyBus)canopyBus.gain.setTargetAtTime(P.canopy,t,0.6);
+}
+function updateSeasons(now){
+  if(!ac)return; const t=ac.currentTime, ts=now/1000, r=S.evoRate/3;
+  // organic drift: sum of two incommensurate slow sines per target, seeded differently
+  const d=(a,b)=>Math.sin(ts*0.010*r+a)*0.62+Math.sin(ts*0.023*r+b)*0.38; // ~[-1,1]
+  if(widthGain)widthGain.setTargetAtTime(Math.max(0,P.width+d(0.4,2.1)*0.5),t,0.4);
+  if(spaceSend)spaceSend.gain.setTargetAtTime(Math.max(0,Math.min(0.9,P.space+d(1.3,4.0)*0.22)),t,0.4);
+  if(wet)wet.gain.setTargetAtTime(Math.max(0,Math.min(1,P.verb+d(2.7,0.9)*0.25)),t,0.4);
+  if(canopyBus)canopyBus.gain.setTargetAtTime(Math.max(0.05,P.canopy+d(3.9,1.6)*0.12),t,0.5);
+}
+
+// re-derive geometry live when morphology/rules change (rebuild to keep math coherent)
+["theta","seglen","ldecay","wind","axiom","ruleX","ruleY","ruleF","rulef"].forEach(id=>{
+  $(id).addEventListener("change",()=>{ if(S.planted){ softRebuild(); } });
+});
+
+/* ---------- SEED LIBRARY: populate + apply + mutate + random ---------- */
+(function initPresets(){
+  const sel=$("preset");
+  PRESETS.forEach((p,i)=>{ const o=document.createElement("option"); o.value=i; o.textContent=p.name; sel.appendChild(o); });
+  sel.onchange=()=>applyPreset(PRESETS[+sel.value]);
+})();
+function applyPreset(p){
+  $("axiom").value=p.axiom; $("ruleX").value=p.X; $("ruleY").value=p.Y;
+  $("ruleF").value=p.F; $("rulef").value=p.f;
+  const set=(id,val,fmt)=>{ $(id).value=val; const v=$(id+"V"); if(v)v.textContent=fmt?fmt(val):val; };
+  set("theta",p.theta); P.theta=p.theta;
+  set("seglen",p.seglen); P.seglen=p.seglen;
+  set("ldecay",p.ldecay); P.ldecay=p.ldecay/100;
+  set("maxgen",p.maxgen); P.maxgen=p.maxgen;
+  set("wind",p.wind); P.wind=p.wind;
+  $("species").value=p.species; P.species=p.species;
+  $("presetDesc").textContent=p.desc;
+  if(S.planted){ S.pruned.clear(); S.grafts=[]; S.graftPick=null;
+    S.targetGen=Math.min(S.targetGen,P.maxgen); softRebuild(); }
+  inspector("🌱 Loaded seed: "+p.name+" — "+p.desc);
+}
+$("randseed").onclick=()=>{
+  const i=Math.floor(Math.random()*PRESETS.length);
+  $("preset").value=i; applyPreset(PRESETS[i]);
+};
+$("mutate").onclick=()=>{
+  // safe mutations only: nudge angle / wind / species / flip a +- pair (never unbalance brackets)
+  const roll=Math.random();
+  if(roll<0.4){ P.theta=Math.max(10,Math.min(90, +(P.theta+(Math.random()*16-8)).toFixed(1)));
+    $("theta").value=P.theta; $("thetaV").textContent=P.theta; }
+  else if(roll<0.7){ P.wind=Math.min(18, +(P.wind+ (Math.random()<.5?-2:3)).toFixed(1)); if(P.wind<0)P.wind=0;
+    $("wind").value=P.wind; $("windV").textContent=P.wind; }
+  else { const sp=["fern","oak","reed","thorn"]; P.species=sp[Math.floor(Math.random()*sp.length)];
+    $("species").value=P.species; }
+  // occasionally flip one +/- in RULE X to alter the branch lean
+  if(Math.random()<0.5){ const r=$("ruleX").value.split("");
+    const idxs=r.map((c,i)=>((c==='+'||c==='-')?i:-1)).filter(i=>i>=0);
+    if(idxs.length){ const k=idxs[Math.floor(Math.random()*idxs.length)]; r[k]=r[k]==='+'?'-':'+'; $("ruleX").value=r.join(""); } }
+  $("presetDesc").textContent="⚄ mutated strain — θ "+P.theta+"°, wind ±"+P.wind+"°, "+P.species;
+  if(S.planted) softRebuild();
+  inspector("⚄ Mutation applied. The strain has drifted.");
+};
+/* ---------- SAVE / LOAD STRAIN (full seed + parameter snapshot) ---------- */
+const STRAIN_FIELDS={
+  text:["axiom","ruleX","ruleY","ruleF","rulef"],
+  slider:["theta","seglen","ldecay","maxgen","wind","cycle","fert",
+          "master","canopy","roots","noise","verb","lo","himid","air","drive","width","space","detune","drift","density","evorate","pulse","rootfreq"],
+  select:["species","preset"]
+};
+$("savestrain").onclick=()=>{
+  const strain={_type:"botanical-strain",_v:1};
+  STRAIN_FIELDS.text.forEach(id=>strain[id]=$(id).value);
+  STRAIN_FIELDS.slider.forEach(id=>strain[id]=$(id).value);
+  STRAIN_FIELDS.select.forEach(id=>strain[id]=$(id).value);
+  strain.desc=$("presetDesc").textContent;
+  const blob=new Blob([JSON.stringify(strain,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="strain-"+Date.now().toString(36)+".json"; a.click();
+  inspector("💾 Strain saved — seed, rules & all parameters captured.");
+};
+$("loadstrain").onclick=()=>$("strainfile").click();
+$("strainfile").onchange=e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+    const strain=JSON.parse(rd.result);
+    if(strain._type!=="botanical-strain") throw new Error("not a strain file");
+    STRAIN_FIELDS.text.forEach(id=>{ if(strain[id]!==undefined)$(id).value=strain[id]; });
+    STRAIN_FIELDS.slider.forEach(id=>{ if(strain[id]!==undefined){ $(id).value=strain[id];
+      $(id).dispatchEvent(new Event("input")); } });
+    STRAIN_FIELDS.select.forEach(id=>{ if(strain[id]!==undefined)$(id).value=strain[id]; });
+    // sync P from the (now-updated) fields for text/select-driven values
+    P.species=$("species").value;
+    if(S.planted){ S.pruned.clear(); S.grafts=[]; S.graftPick=null;
+      S.targetGen=Math.min(S.targetGen,P.maxgen); softRebuild(); }
+    $("presetDesc").textContent=strain.desc||"loaded strain";
+    inspector("📂 Strain loaded — "+(strain.desc||file.name));
+  }catch(err){ inspector("⚠ Could not load strain: "+err.message); } };
+  rd.readAsText(file);
+  e.target.value=""; // allow re-loading same file
+};
+function softRebuild(){
+  // keep pruned set & grafts; wipe visual+voices, regrow to current targetGen
+  S.lineage=null; S.selected=null; clearSolo(); $("nodecard").style.display="none";
+  S.maxDepth=0; S.agingList=null; S.completeAt=0;
+  for(const n of S.nodes.values()){ if(n.voice)stopVoice(n,true); }
+  S.nodes.clear();
+  [...svg.querySelectorAll("line,circle,path")].forEach(e=>e.remove());
+  render();
+}
+
+// transport
+$("plant").onclick=()=>{
+  buildAudio(); if(ac.state==="suspended")ac.resume();
+  if(!S.planted){
+    S.planted=true; S.running=true; S.targetGen=0; S.gen=0; S.clockAcc=0;
+    render(); // gen 0 seed
+    if(S.targetGen<P.maxgen) grow(); // pop the first split immediately
+    inspector("🌱 Seed planted. The L-system awakens; branches spawn JI-tuned drone voices.");
+    $("playpause").classList.add("on"); $("playpause").textContent="❚❚ PAUSE";
+  } else { softRebuild(); }
+  updateStatus();
+};
+$("playpause").onclick=()=>{
+  if(!S.planted)return;
+  S.running=!S.running;
+  $("playpause").classList.toggle("on",S.running);
+  $("playpause").textContent=S.running?"❚❚ PAUSE":"▶ RESUME";
+  if(ac){ if(S.running)ac.resume(); }
+};
+$("reset").onclick=()=>{
+  clearSelection(); clearSolo(); $("nodecard").style.display="none";
+  for(const n of S.nodes.values()){ if(n.voice)stopVoice(n,true); }
+  S.nodes.clear(); S.pruned.clear(); S.grafts=[]; S.graftPick=null;
+  S.gen=0;S.targetGen=0;S.decayCount=0;S.clockAcc=0;S.planted=false;S.running=false;S.completeAt=0;
+  S.progRatio=1;S.progIdx=0;S.progAcc=0; S.maxDepth=0; S.agingList=null; $("harmstat").textContent="root: home key (I)";
+  [...svg.querySelectorAll("line,circle,path")].forEach(e=>e.remove());
+  svg.setAttribute("viewBox","0 0 800 520");
+  $("playpause").classList.remove("on");$("playpause").textContent="▶ RESUME";
+  if(subGain)subGain.gain.setTargetAtTime(0,ac.currentTime,0.3);
+  if(noiseGain)noiseGain.gain.setTargetAtTime(0,ac.currentTime,0.3);
+  if(freezeGain){ freezeGain.gain.setTargetAtTime(0,ac.currentTime,0.3);
+    $("freeze").classList.remove("on"); $("freeze").textContent="❆ FREEZE CANOPY"; }
+  inspector("Soil reset. Ready for a new seed.");
+  updateStatus();
+};
+// click empty canvas → deselect / cancel graft pick
+stage.addEventListener("click",e=>{
+  if(e.target.tagName==="line") return; // handled by segment
+  if(S.graftPick){ if(S.graftPick.el)S.graftPick.el.setAttribute("stroke",S.graftPick.el.dataset.baseCol); S.graftPick=null; inspector("Graft cancelled."); return; }
+  if(S.selected){ clearSelection(); $("nodecard").style.display="none"; }
+});
+
+// keyboard shortcuts (ignored while typing in a field)
+function pickTool(name){ const el=[...document.querySelectorAll(".tool")].find(t=>t.dataset.tool===name); if(el)el.click(); }
+document.addEventListener("keydown",e=>{
+  const tag=(e.target.tagName||"").toLowerCase();
+  if(tag==="input"||tag==="textarea"||tag==="select")return;
+  switch(e.key){
+    case "1": pickTool("grow"); break;
+    case "2": pickTool("prune"); break;
+    case "3": pickTool("graft"); break;
+    case "4": pickTool("inspect"); break;
+    case " ": e.preventDefault(); $("playpause").click(); break;
+    case "m": case "M": $("mutate").click(); break;
+    case "f": case "F": $("fertburst").click(); break;
+    case "Escape": clearSelection(); clearSolo(); $("nodecard").style.display="none"; break;
+  }
+});
+
+// menu bar cosmetics
+document.querySelectorAll(".menu span").forEach(m=>m.onclick=()=>{
+  const t=m.textContent;
+  const info={File:"File ▸ use SAVE .SVG / REC .WAV in the Export panel.",
+    Cultivate:"Cultivate ▸ PLANT SEED then let the Deep-Time clock split branches.",
+    Graft:"Graft ▸ pick the GRAFT tool, click a source limb then a target limb.",
+    Tuning:"Tuning ▸ branch angle θ maps to Just-Intonation ratios (see table).",
+    MIDI:"MIDI ▸ click ENABLE MIDI to stream notes to external hardware.",
+    Help:"Botanical Sequencer: grow fractal trees; every branch is a drone voice."};
+  inspector(info[t]||t);
+});
+
+// kick the loop
+$("sClock").textContent="GROWTH CLOCK: idle — press PLANT SEED";
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
